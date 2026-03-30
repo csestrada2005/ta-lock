@@ -13,7 +13,7 @@ import { useProfessorChat } from "@/hooks/useProfessorChat";
 import { useProfessorQuiz } from "@/hooks/useProfessorQuiz";
 
 const ProfessorAI = () => {
-  const { courseId, cohortId, term, studentId } = useTaLock();
+  const { courseId, cohortId, term, studentId, brandName } = useTaLock();
 
   const [mode, setMode] = useState<Mode>("Study");
   const [selectedLecture, setSelectedLecture] = useState<string | null>(null);
@@ -243,6 +243,7 @@ const ProfessorAI = () => {
         onSelectConversation={handleSelectConversation}
         activeConversationId={chat.activeConversationId}
         studentId={studentId}
+        brandName={brandName}
         onFeedback={handleFeedback}
       />
 
@@ -253,13 +254,8 @@ const ProfessorAI = () => {
           sidebarOpen={sidebarOpen}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
           selectedCourse={selectedCourse}
-          onCourseChange={handleCourseSelect}
           selectedMode={mode}
           onModeChange={handleModeChange}
-          selectedBatch={selectedBatch}
-          selectedTerm={selectedTerm || ""}
-          onTermChange={() => {}}
-          courses={availableCourses}
         />
 
         {renderContent()}
