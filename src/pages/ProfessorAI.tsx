@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+
 import { Loader2 } from "lucide-react";
 import { ProfessorTermSelection } from "@/components/professor-ai/ProfessorTermSelection";
 import { ProfessorCourseSelection } from "@/components/professor-ai/ProfessorCourseSelection";
