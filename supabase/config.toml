@@ -1,16 +1,1 @@
-project_id = "cqrhdjqdurhetjayllel"
-
-[functions.ai-tutor-chat]
-verify_jwt = true
-
-[functions.rag-search]
-verify_jwt = true
-
-[functions.chat-proxy]
-verify_jwt = true
-
-[functions.professor-chat]
-verify_jwt = false
-
-[functions.generate-quiz]
-verify_jwt = false
+project_id = "dgaczcbaloxtyjylhtoo"
