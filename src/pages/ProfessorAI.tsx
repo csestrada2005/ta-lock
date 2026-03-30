@@ -50,14 +50,11 @@ const ProfessorAI = () => {
 
   const quiz = useProfessorQuiz(selectedCourse || undefined);
 
-  // ── Initialise batch / term / course from LMS config ──
+  // Sync from LTI context if it changes after mount
   useEffect(() => {
-    if (courseId) {
-      setSelectedCourse(courseId);
-      setSelectedBatch(cohortId || "");
-      setSelectedTerm(term || "");
-    }
-  }, [courseId, cohortId, term]);
+    if (courseId) setSelectedCourse(courseId);
+    if (cohortId) setSelectedBatch(cohortId);
+  }, [courseId, cohortId]);
 
   // ── Fetch lectures ──
   useEffect(() => {
