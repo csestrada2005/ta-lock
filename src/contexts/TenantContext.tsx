@@ -37,6 +37,8 @@ interface TenantContextValue {
   logoUrl: string;
   brandName: string;
   ready: boolean;
+  /** LMS-injected external config (if present) */
+  externalConfig: AskTetrConfig | null;
 }
 
 const TenantContext = createContext<TenantContextValue | null>(null);
@@ -57,9 +59,17 @@ interface TenantProviderProps {
 export function TenantProvider({ children, tenantId, styleRoot }: TenantProviderProps) {
   const [config, setConfig] = useState<TenantConfig | null>(null);
 
+  // Read LMS-injected config once
+  const lmsConfig: AskTetrConfig | null = typeof window !== "undefined" && window.AskTetrConfig
+    ? window.AskTetrConfig
+    : null;
+
+  // Resolve effective tenantId: explicit prop > LMS config > default
+  const effectiveTenantId = tenantId ?? lmsConfig?.tenantId ?? DEFAULT_TENANT_ID;
+
   useEffect(() => {
-    fetchTenantConfig(tenantId ?? DEFAULT_TENANT_ID).then(setConfig);
-  }, [tenantId]);
+    fetchTenantConfig(effectiveTenantId).then(setConfig);
+  }, [effectiveTenantId]);
 
   // Inject theme CSS variables into :root whenever theme changes
   useEffect(() => {
@@ -69,41 +79,22 @@ export function TenantProvider({ children, tenantId, styleRoot }: TenantProvider
     const primaryHsl = hexToHsl(theme.primary);
     const secondaryHsl = hexToHsl(theme.secondary);
 
-    // Override the existing design-system variables so all components
-    // using bg-primary, text-primary-foreground, etc. pick them up automatically
     root.style.setProperty("--primary", primaryHsl);
     root.style.setProperty("--accent", primaryHsl);
     root.style.setProperty("--ring", primaryHsl);
-
-    // Derive a very light foreground for dark primary backgrounds
     root.style.setProperty("--primary-foreground", "0 0% 100%");
     root.style.setProperty("--accent-foreground", "0 0% 100%");
-
-    // Secondary / chat-user-bg
     root.style.setProperty("--chat-user-bg", secondaryHsl);
-
-    // Tenant-specific custom properties (for anything that needs them explicitly)
     root.style.setProperty("--theme-primary", primaryHsl);
     root.style.setProperty("--theme-secondary", secondaryHsl);
-
-    // Gradient overrides
     root.style.setProperty(
       "--gradient-hero",
       `linear-gradient(135deg, hsl(${primaryHsl}), hsl(${secondaryHsl}), hsl(${primaryHsl}))`,
     );
-    root.style.setProperty(
-      "--shadow-soft",
-      `0 4px 20px -4px hsl(${primaryHsl} / 0.2)`,
-    );
-    root.style.setProperty(
-      "--shadow-hover",
-      `0 8px 30px -4px hsl(${primaryHsl} / 0.35)`,
-    );
-    root.style.setProperty(
-      "--shadow-glow",
-      `0 0 40px -10px hsl(${primaryHsl} / 0.4)`,
-    );
-  }, [config?.theme]);
+    root.style.setProperty("--shadow-soft", `0 4px 20px -4px hsl(${primaryHsl} / 0.2)`);
+    root.style.setProperty("--shadow-hover", `0 8px 30px -4px hsl(${primaryHsl} / 0.35)`);
+    root.style.setProperty("--shadow-glow", `0 0 40px -10px hsl(${primaryHsl} / 0.4)`);
+  }, [config?.theme, styleRoot]);
 
   const value: TenantContextValue = {
     personas: config?.personas ?? {},
@@ -119,6 +110,7 @@ export function TenantProvider({ children, tenantId, styleRoot }: TenantProvider
     logoUrl: config?.logoUrl ?? "/asktetr-logo.png",
     brandName: config?.brandName ?? "AskTETR",
     ready: config !== null,
+    externalConfig: lmsConfig,
   };
 
   return <TenantContext.Provider value={value}>{children}</TenantContext.Provider>;
