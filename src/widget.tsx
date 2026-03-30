@@ -57,7 +57,11 @@ class AskTetrWidget extends HTMLElement {
   private _mount() {
     if (!this._shadowContainer) return;
 
-    const tenantId = this.getAttribute("tenant-id") || undefined;
+    // Attribute takes precedence, then window.AskTetrConfig, then undefined
+    const tenantId =
+      this.getAttribute("tenant-id") ||
+      window.AskTetrConfig?.tenantId ||
+      undefined;
 
     // Unmount previous tree if re-rendering
     if (this._root) {
@@ -66,10 +70,8 @@ class AskTetrWidget extends HTMLElement {
 
     this._root = createRoot(this._shadowContainer);
 
-    // Pass tenantId and shadow host element to the App so TenantProvider
-    // can inject CSS variables into the shadow root instead of <html>
     this._root.render(
-      <App tenantId={tenantId} styleRoot={this._shadowContainer} />
+      <App tenantId={tenantId} styleRoot={this._shadowContainer} embed />
     );
   }
 }
