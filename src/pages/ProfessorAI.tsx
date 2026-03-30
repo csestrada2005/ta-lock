@@ -17,9 +17,8 @@ const ProfessorAI = () => {
 
   const [mode, setMode] = useState<Mode>("Study");
   const [selectedLecture, setSelectedLecture] = useState<string | null>(null);
-  const [selectedCourse, setSelectedCourse] = useState<string | null>(null);
-  const [selectedBatch, setSelectedBatch] = useState<string | null>(null);
-  const [selectedTerm, setSelectedTerm] = useState<string | null>(null);
+  const [selectedCourse, setSelectedCourse] = useState<string | null>(courseId || null);
+  const [selectedBatch, setSelectedBatch] = useState<string | null>(cohortId || null);
   const [lectures, setLectures] = useState<Lecture[]>([]);
   const [lecturesLoading, setLecturesLoading] = useState(false);
   const [lecturesError, setLecturesError] = useState(false);
