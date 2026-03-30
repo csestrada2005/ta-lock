@@ -246,7 +246,7 @@ const ProfessorAI = () => {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    navigate("/auth");
+    // Widget simply signs out; host page handles post-logout UX
   };
 
   const handleFeedback = () => setFeedbackOpen(true);
