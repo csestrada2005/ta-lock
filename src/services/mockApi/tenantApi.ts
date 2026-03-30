@@ -45,7 +45,7 @@ export async function fetchTenantConfig(_tenantId: string): Promise<TenantConfig
   const modes = (allPersonas.modes ?? {}) as Record<string, ModeConfig>;
 
   return {
-    coursesByBatchTerm: coursesData,
+    coursesByBatchTerm: COURSES_BY_BATCH_TERM,
     personas: allPersonas,
     modes,
   };
