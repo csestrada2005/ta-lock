@@ -4,7 +4,6 @@ interface TaLockConfig {
   courseId: string;
   studentId: string;
   token: string;          // Short-lived JWT signed by TaLock secret
-  cohortId?: string;      // Optional: LMS cohort/batch identifier
   term?: string;          // Optional: academic term identifier
   locale?: string;        // Optional: BCP-47 locale string e.g. "en-US"
   theme?: {

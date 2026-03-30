@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Loader2, ShieldAlert } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useTaLock } from "@/contexts/TaLockContext";
 
 /**
@@ -21,7 +21,7 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
  * LTI 1.3 launch entry point.
  *
  * Reads `?token=<JWT>` from the URL, decodes the payload to extract
- * tenantId, courseId, studentId (and optional cohortId / term / theme),
+ * tenantId, courseId, studentId (and optional term / theme),
  * writes them into window.TaLockConfig so TaLockProvider picks them up,
  * then navigates to /chat.
  */
@@ -33,17 +33,22 @@ const LTILaunch = () => {
   const token = searchParams.get("token");
 
   useEffect(() => {
-    if (!token) return;
+    if (!token) {
+      navigate("/unauthorized", { replace: true });
+      return;
+    }
 
     const payload = decodeJwtPayload(token);
-    if (!payload) return;
+    if (!payload) {
+      navigate("/unauthorized", { replace: true });
+      return;
+    }
 
     const ltiState: TaLockConfig = {
       tenantId: (payload.tenantId as string) ?? "",
       courseId: (payload.courseId as string) ?? "",
       studentId: (payload.studentId as string) ?? (payload.sub as string) ?? "",
       token,
-      cohortId: (payload.cohortId as string) ?? undefined,
       term: (payload.term as string) ?? undefined,
       locale: (payload.locale as string) ?? undefined,
       theme: payload.theme as TaLockConfig["theme"] ?? undefined,
@@ -58,20 +63,6 @@ const LTILaunch = () => {
     navigate("/chat", { replace: true });
   }, [token, navigate, setLtiState]);
 
-  if (!token) {
-    return (
-      <div className="flex h-screen w-screen items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-3 p-8 text-center max-w-xs">
-          <ShieldAlert className="h-10 w-10 text-destructive" />
-          <h1 className="text-lg font-semibold text-foreground">Unauthorized</h1>
-          <p className="text-sm text-muted-foreground">
-            No LTI launch token was provided. Please access this application through your LMS.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="flex h-screen w-screen items-center justify-center bg-background">
       <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -80,3 +71,15 @@ const LTILaunch = () => {
 };
 
 export default LTILaunch;
+
+// Dev helper: generate a mock LTI token for testing
+// Usage in browser console: navigate to /launch?token=<result>
+export const makeMockLtiToken = (
+  tenantId = "mock-tenant-1",
+  courseId = "mock-course-123",
+  studentId = "student-1",
+) => {
+  const header = btoa(JSON.stringify({ alg: "RS256", typ: "JWT" }));
+  const payload = btoa(JSON.stringify({ tenantId, courseId, studentId }));
+  return `${header}.${payload}.mock-signature`;
+};

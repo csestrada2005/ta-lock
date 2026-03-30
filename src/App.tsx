@@ -4,10 +4,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { TaLockProvider } from "@/contexts/TaLockContext";
+import { useTaLock } from "@/contexts/TaLockContext";
 import LTILaunch from "@/pages/LTILaunch";
 import ProfessorAI from "@/pages/ProfessorAI";
-import { useTaLock } from "@/contexts/TaLockContext";
-import { ShieldAlert } from "lucide-react";
+import Unauthorized from "@/pages/Unauthorized";
 
 const queryClient = new QueryClient();
 
@@ -17,18 +17,6 @@ const RequireLTI = ({ children }: { children: React.ReactNode }) => {
   if (!isAuthenticated) return <Navigate to="/unauthorized" replace />;
   return <>{children}</>;
 };
-
-const Unauthorized = () => (
-  <div className="flex h-screen w-screen items-center justify-center bg-background">
-    <div className="flex flex-col items-center gap-3 p-8 text-center max-w-xs">
-      <ShieldAlert className="h-10 w-10 text-destructive" />
-      <h1 className="text-lg font-semibold text-foreground">Unauthorized</h1>
-      <p className="text-sm text-muted-foreground">
-        Please access this application through your LMS.
-      </p>
-    </div>
-  </div>
-);
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
