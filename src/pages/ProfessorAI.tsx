@@ -118,13 +118,6 @@ const ProfessorAI = () => {
 
   const handleStartQuiz = () => {};
 
-  const handleCourseSelect = (courseId: string) => {
-    setSelectedCourse(courseId);
-    setSelectedLecture(null);
-    setExpertiseLevel(null);
-    chat.resetChat(true);
-    quiz.resetQuiz();
-  };
 
   const handleModeChange = (newMode: Mode) => {
     setMode(newMode);
