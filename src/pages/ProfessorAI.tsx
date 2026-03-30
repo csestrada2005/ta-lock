@@ -4,9 +4,6 @@ import { ProfessorHeader } from "@/components/professor-ai/ProfessorHeader";
 import { ProfessorSidebarNew } from "@/components/professor-ai/ProfessorSidebarNew";
 import { QuizView } from "@/components/professor-ai/QuizView";
 import { ChatView } from "@/components/professor-ai/ChatView";
-import { StudentProgressView } from "@/components/professor-ai/StudentProgressView";
-import { CohortAnalyticsView } from "@/components/professor-ai/CohortAnalyticsView";
-import { GuardrailsView } from "@/components/professor-ai/GuardrailsView";
 import { FeedbackDialog } from "@/components/FeedbackDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenant } from "@/contexts/TenantContext";
@@ -275,18 +272,9 @@ const ProfessorAI = () => {
   const renderTabContent = () => {
     switch (activeTab) {
       case "progress":
-        return <StudentProgressView selectedBatch={selectedBatch} />;
       case "analytics":
-        return isAdmin ? (
-          <CohortAnalyticsView selectedBatch={selectedBatch} />
-        ) : null;
       case "guardrails":
-        return isAdmin ? (
-          <GuardrailsView
-            selectedBatch={selectedBatch}
-            selectedCourse={selectedCourse}
-          />
-        ) : null;
+        return null;
       default:
         return mode === "Quiz" ? (
           <QuizView

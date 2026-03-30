@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { fetchTenantConfig, resolveDisplayName, type TenantConfig, type Course, type ThemeColors } from "@/services/mockApi";
-import type { COURSES_BY_BATCH_TERM } from "@/data/courses";
 
 // ---------- hex → HSL helper ----------
 function hexToHsl(hex: string): string {
@@ -29,7 +28,7 @@ function hexToHsl(hex: string): string {
 interface TenantContextValue {
   personas: Record<string, any>;
   modes: Record<string, { system_prompt: string; initial_message: string }>;
-  coursesByBatchTerm: typeof COURSES_BY_BATCH_TERM;
+  coursesByBatchTerm: Record<string, Record<string, Course[]>>;
   getDisplayName: (classId: string) => string;
   getCourses: (batch: string, term: string) => Course[];
   getPersona: (batch: string, classId: string) => Record<string, any> | undefined;
@@ -99,7 +98,7 @@ export function TenantProvider({ children, tenantId, styleRoot }: TenantProvider
   const value: TenantContextValue = {
     personas: config?.personas ?? {},
     modes: config?.modes ?? {},
-    coursesByBatchTerm: config?.coursesByBatchTerm ?? ({} as typeof COURSES_BY_BATCH_TERM),
+    coursesByBatchTerm: config?.coursesByBatchTerm ?? {},
     getDisplayName: (classId: string) =>
       config ? resolveDisplayName(config.personas, classId) : classId,
     getCourses: (batch: string, term: string) =>

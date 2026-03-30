@@ -3,11 +3,11 @@
  * courses, and personas from a backend.
  */
 
-import { COURSES_BY_BATCH_TERM } from "@/data/courses";
-import personasJson from "@/data/personas.json";
-
-// Re-export the Course type so consumers don't need to import from data/
-export type { Course } from "@/data/courses";
+// Re-exported so consumers don't need to define it themselves
+export interface Course {
+  id: string;      // db_key for backend
+  name: string;    // display name
+}
 
 export interface PersonaConfig {
   display_name?: string;
@@ -28,7 +28,7 @@ export interface ThemeColors {
 }
 
 export interface TenantConfig {
-  coursesByBatchTerm: typeof COURSES_BY_BATCH_TERM;
+  coursesByBatchTerm: Record<string, Record<string, Course[]>>;
   personas: Record<string, any>;
   modes: Record<string, ModeConfig>;
   theme: ThemeColors;
@@ -48,13 +48,10 @@ const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 export async function fetchTenantConfig(_tenantId: string): Promise<TenantConfig> {
   await delay(SIMULATED_DELAY);
 
-  const allPersonas = personasJson as Record<string, any>;
-  const modes = (allPersonas.modes ?? {}) as Record<string, ModeConfig>;
-
   return {
-    coursesByBatchTerm: COURSES_BY_BATCH_TERM,
-    personas: allPersonas,
-    modes,
+    coursesByBatchTerm: {},
+    personas: {},
+    modes: {},
     // Mock theme payload — swap these values to white-label for any tenant
     theme: {
       primary: "#800000",
