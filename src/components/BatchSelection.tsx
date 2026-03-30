@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { GraduationCap, Users } from "lucide-react";
+import { useTenant } from "@/contexts/TenantContext";
 
 interface BatchSelectionProps {
   onBatchSelect: (batchId: string) => void;
