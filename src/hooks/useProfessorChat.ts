@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useCallback, MutableRefObject } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import personasData from "@/data/personas.json";
 import type { Mode, Message, ExpertiseLevel, DiagnosticQuizData, DiagnosticSubmission, SystemEvent, SocraticState } from "@/components/professor-ai/types";
 
 const NO_MATERIALS_FALLBACK_PHRASES = [
@@ -32,6 +31,8 @@ interface UseProfessorChatProps {
   mode: Mode;
   expertiseLevel: ExpertiseLevel;
   onExpertiseLevelChange?: (level: ExpertiseLevel) => void;
+  /** Personas data from TenantContext */
+  personas: Record<string, any>;
 }
 
 export const useProfessorChat = ({
@@ -41,6 +42,7 @@ export const useProfessorChat = ({
   mode,
   expertiseLevel,
   onExpertiseLevelChange,
+  personas: personasData,
 }: UseProfessorChatProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);

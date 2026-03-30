@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, ChevronDown, ChevronUp, BookOpen } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import type { Course } from "@/data/courses";
+import type { Course } from "@/services/mockApi";
 import {
   Collapsible,
   CollapsibleContent,

@@ -12,13 +12,14 @@ import { CohortAnalyticsView } from "@/components/professor-ai/CohortAnalyticsVi
 import { GuardrailsView } from "@/components/professor-ai/GuardrailsView";
 import { FeedbackDialog } from "@/components/FeedbackDialog";
 import { supabase } from "@/integrations/supabase/client";
-import { COURSES_BY_BATCH_TERM } from "@/data/courses";
+import { useTenant } from "@/contexts/TenantContext";
 import type { Mode, Lecture, ExpertiseLevel, HeaderTab } from "@/components/professor-ai/types";
 import { useProfessorChat } from "@/hooks/useProfessorChat";
 import { useProfessorQuiz } from "@/hooks/useProfessorQuiz";
 
 const ProfessorAI = () => {
   const navigate = useNavigate();
+  const { getCourses, getPersona, personas, ready: tenantReady } = useTenant();
   const [mode, setMode] = useState<Mode>("Study");
   const [selectedLecture, setSelectedLecture] = useState<string | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<string | null>(null);
@@ -37,7 +38,7 @@ const ProfessorAI = () => {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   const availableCourses = selectedBatch && selectedTerm 
-    ? COURSES_BY_BATCH_TERM[selectedBatch]?.[selectedTerm] || [] 
+    ? getCourses(selectedBatch, selectedTerm)
     : [];
   
   const filteredLectures = selectedCourse 
@@ -56,6 +57,7 @@ const ProfessorAI = () => {
     mode,
     expertiseLevel,
     onExpertiseLevelChange: setExpertiseLevel,
+    personas,
   });
 
   const { calibrationRequest, setCalibrationRequest, diagnosticQuiz, setDiagnosticQuiz, submitDiagnostic, isGeneratingDiagnostic } = chat;

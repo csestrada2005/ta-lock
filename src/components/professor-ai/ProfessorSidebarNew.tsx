@@ -19,7 +19,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import personas from "@/data/personas.json";
+import { useTenant } from "@/contexts/TenantContext";
 import { cn } from "@/lib/utils";
 import { ChatActionsMenu } from "./ChatActionsMenu";
 import {
@@ -52,12 +52,11 @@ interface ProfessorSidebarNewProps {
   onFeedback: () => void;
 }
 
-const getDisplayName = (classId: string): string => {
-  const allPersonas = personas as Record<string, any>;
-  for (const batchId of Object.keys(allPersonas)) {
+const getDisplayNameFromPersonas = (personas: Record<string, any>, classId: string): string => {
+  for (const batchId of Object.keys(personas)) {
     if (batchId === "modes") continue;
-    if (allPersonas[batchId]?.[classId]) {
-      return allPersonas[batchId][classId].display_name || classId;
+    if (personas[batchId]?.[classId]) {
+      return personas[batchId][classId].display_name || classId;
     }
   }
   return classId;
@@ -98,6 +97,8 @@ export const ProfessorSidebarNew = ({
   onLogout,
   onFeedback,
 }: ProfessorSidebarNewProps) => {
+  const { personas } = useTenant();
+  const getDisplayName = (classId: string) => getDisplayNameFromPersonas(personas, classId);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");

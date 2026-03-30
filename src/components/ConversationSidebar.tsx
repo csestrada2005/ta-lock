@@ -4,20 +4,10 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Plus, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
-import personas from "@/data/personas.json";
+import { useTenant } from "@/contexts/TenantContext";
 
 type CohortPersonas = Record<string, { display_name?: string; professor_name?: string }>;
 
-const getDisplayName = (classId: string): string => {
-  const allPersonas = personas as Record<string, any>;
-  for (const batchId of Object.keys(allPersonas)) {
-    if (batchId === "modes") continue;
-    if (allPersonas[batchId]?.[classId]) {
-      return allPersonas[batchId][classId].display_name || classId;
-    }
-  }
-  return classId;
-};
 
 interface Conversation {
   id: string;
@@ -38,6 +28,7 @@ export function ConversationSidebar({
   onSelectConversation,
   onNewChat,
 }: ConversationSidebarProps) {
+  const { getDisplayName } = useTenant();
   const [conversations, setConversations] = React.useState<Conversation[]>([]);
   const [loading, setLoading] = React.useState(true);
 
