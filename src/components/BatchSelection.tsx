@@ -27,11 +27,8 @@ export const BatchSelection = ({ onBatchSelect }: BatchSelectionProps) => {
     <div className="w-full max-w-2xl">
       <div className="text-center mb-8">
         <div className="flex justify-center mb-4">
-          <img
-            src="/asktetr-logo.png"
-            alt="Ask TETR"
-            className="h-16 w-auto"
-          />
+          <TenantLogo className="h-16 w-auto" />
+        </div>
         </div>
         <h1 className="text-3xl font-bold text-foreground mb-2">
           Welcome to Ask TETR
