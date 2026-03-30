@@ -2,7 +2,7 @@ import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Mode } from "./types";
-import { useTaLock } from "@/contexts/TenantContext";
+import { useTaLock } from "@/contexts/TaLockContext";
 
 interface ProfessorHeaderProps {
   sidebarOpen: boolean;

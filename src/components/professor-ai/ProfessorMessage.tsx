@@ -217,14 +217,14 @@ export const ProfessorMessage = ({ message, isStreaming = false, messageId, sess
 
     const loadFeedback = async () => {
       try {
-        const { data: session } = await supabase.auth.getSession();
-        if (!session.session) return;
+        const userId = window.TaLockConfig?.studentId ?? "";
+        if (!userId) return;
 
         const { data } = await supabase
           .from("message_feedback")
           .select("feedback_type")
           .eq("message_id", messageId)
-          .eq("user_id", session.session.user.id)
+          .eq("user_id", userId)
           .maybeSingle();
 
         if (data) {
@@ -274,15 +274,15 @@ export const ProfessorMessage = ({ message, isStreaming = false, messageId, sess
       toast.success("Thanks for your feedback!");
 
       if (messageId) {
-        const { data: session } = await supabase.auth.getSession();
-        if (session.session) {
+        const userId = window.TaLockConfig?.studentId ?? "";
+        if (userId) {
           const feedbackType = rating >= 4 ? 'up' : rating <= 2 ? 'down' : 'up';
           await supabase
             .from("message_feedback")
             .upsert(
               {
                 message_id: messageId,
-                user_id: session.session.user.id,
+                user_id: userId,
                 feedback_type: feedbackType,
               },
               { onConflict: "message_id,user_id" }

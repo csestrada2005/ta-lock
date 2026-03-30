@@ -6,7 +6,7 @@ import { QuizView } from "@/components/professor-ai/QuizView";
 import { ChatView } from "@/components/professor-ai/ChatView";
 import { FeedbackDialog } from "@/components/FeedbackDialog";
 import { supabase } from "@/integrations/supabase/client";
-import { useTaLock } from "@/contexts/TenantContext";
+import { useTaLock } from "@/contexts/TaLockContext";
 import { getAuthToken } from "@/lib/auth";
 import type { Mode, Lecture, ExpertiseLevel } from "@/components/professor-ai/types";
 import { useProfessorChat } from "@/hooks/useProfessorChat";

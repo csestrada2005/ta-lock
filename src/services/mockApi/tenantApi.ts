@@ -19,6 +19,7 @@ const SIMULATED_DELAY = 50;
 
 const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
+// TODO: PRODUCTION — replace stub with real API call
 /**
  * TODO: replace with real API call to GET /api/tenants/{tenantId}/config
  *

@@ -14,24 +14,6 @@ export interface Lecture {
   class_name?: string;
 }
 
-// Persona / course definition in personas.json
-export interface CoursePersona {
-  display_name: string;
-  system_prompt: string;
-  initial_message: string;
-  professor_name?: string;
-}
-
-// Mode definition in personas.json
-export interface ModePersona {
-  system_prompt: string;
-  initial_message: string;
-}
-
-export interface PersonasData {
-  modes: Record<string, ModePersona>;
-  [cohort: string]: Record<string, CoursePersona> | Record<string, ModePersona>;
-}
 
 // Diagnostic Quiz types
 export interface DiagnosticQuestion {

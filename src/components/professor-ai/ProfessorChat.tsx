@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Sparkles, Loader2, MessageSquare, ArrowUp, Search, Brain, FileText, Paperclip, X, BookOpen } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { getAuthToken } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { ProfessorMessage } from "./ProfessorMessage";
 import { KnowledgeLevelSelector, type KnowledgeLevel } from "./KnowledgeLevelSelector";
@@ -205,8 +205,7 @@ export const ProfessorChat = ({
           description: `Extracting text from ${file.name}`,
         });
 
-        const { data: sessionData } = await supabase.auth.getSession();
-        const token = sessionData.session?.access_token || "";
+        const token = getAuthToken();
 
         const formData = new FormData();
         formData.append("file", file);

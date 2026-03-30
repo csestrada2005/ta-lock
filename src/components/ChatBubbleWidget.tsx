@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { MessageCircle, X } from "lucide-react";
-import { useTaLock } from "@/contexts/TenantContext";
+import { useTaLock } from "@/contexts/TaLockContext";
 import { cn } from "@/lib/utils";
 
 interface ChatBubbleWidgetProps {

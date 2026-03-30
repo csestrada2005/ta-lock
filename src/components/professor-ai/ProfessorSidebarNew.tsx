@@ -95,7 +95,7 @@ export const ProfessorSidebarNew = ({
   const loadConversations = useCallback(async () => {
     if (!studentId) return;
     try {
-      // TODO: RLS policy must allow reads where user_id = studentId validated via TaLock JWT
+      // TODO: PRODUCTION — RLS policy must allow reads where user_id = studentId validated via TaLock JWT
       const { data, error } = await supabase
         .from("conversations")
         .select("*")
