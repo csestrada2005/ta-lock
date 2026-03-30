@@ -28,6 +28,7 @@ export function ConversationSidebar({
   onSelectConversation,
   onNewChat,
 }: ConversationSidebarProps) {
+  const { getDisplayName } = useTenant();
   const [conversations, setConversations] = React.useState<Conversation[]>([]);
   const [loading, setLoading] = React.useState(true);
 

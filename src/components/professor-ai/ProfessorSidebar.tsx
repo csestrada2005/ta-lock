@@ -9,7 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Mode, Lecture } from "./types";
-import type { Course } from "@/data/courses";
+import type { Course } from "@/services/mockApi";
 
 interface ProfessorSidebarProps {
   mode: Mode;

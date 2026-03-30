@@ -5,7 +5,7 @@ import { ChatMessage } from "./ChatMessage";
 import { Loader2, Send, Sparkles, Paperclip, X, FileText, ArrowUp, GraduationCap, Search, Image, Camera, Plus, ImageIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import personas from "@/data/personas.json";
+import { useTenant } from "@/contexts/TenantContext";
 import { BatchSelection } from "./BatchSelection";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
