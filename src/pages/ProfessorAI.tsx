@@ -38,7 +38,7 @@ const ProfessorAI = () => {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   const availableCourses = selectedBatch && selectedTerm 
-    ? COURSES_BY_BATCH_TERM[selectedBatch]?.[selectedTerm] || [] 
+    ? getCourses(selectedBatch, selectedTerm)
     : [];
   
   const filteredLectures = selectedCourse 
