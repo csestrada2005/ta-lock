@@ -213,8 +213,8 @@ const Index = () => {
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 sm:gap-6">
             <div className="flex items-center justify-center">
               <img 
-                src="/asktetr-logo.png" 
-                alt="Ask TETR - A TETR Way to Study" 
+                src={logoUrl} 
+                alt={brandName} 
                 className="h-16 sm:h-24 w-auto"
               />
             </div>
