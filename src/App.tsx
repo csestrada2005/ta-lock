@@ -30,9 +30,14 @@ const ProfessorEmbed = () => (
   </ChatBubbleWidget>
 );
 
-const App = () => (
+interface AppProps {
+  tenantId?: string;
+  styleRoot?: HTMLElement | null;
+}
+
+const App = ({ tenantId, styleRoot }: AppProps = {}) => (
   <QueryClientProvider client={queryClient}>
-    <TenantProvider>
+    <TenantProvider tenantId={tenantId} styleRoot={styleRoot}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
