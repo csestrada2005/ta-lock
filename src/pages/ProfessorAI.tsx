@@ -18,7 +18,7 @@ import { useProfessorChat } from "@/hooks/useProfessorChat";
 import { useProfessorQuiz } from "@/hooks/useProfessorQuiz";
 
 const ProfessorAI = () => {
-  const navigate = useNavigate();
+  
   const { getCourses, getPersona, personas, ready: tenantReady } = useTenant();
   const [mode, setMode] = useState<Mode>("Study");
   const [selectedLecture, setSelectedLecture] = useState<string | null>(null);
