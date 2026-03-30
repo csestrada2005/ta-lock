@@ -1,7 +1,7 @@
 /**
  * Web Component entry point.
  *
- * Defines <ask-tetr-widget tenant-id="123"> that:
+ * Defines <ta-lock-widget tenant-id="123"> that:
  *  1. Attaches a Shadow DOM for CSS isolation
  *  2. Injects Tailwind + app CSS into the shadow root
  *  3. Renders the full React app inside the shadow root
@@ -17,7 +17,7 @@ import appStyles from "./index.css?inline";
 // Google Fonts CSS (loaded as inline string)
 const FONT_CSS = `@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');`;
 
-class AskTetrWidget extends HTMLElement {
+class TaLockWidget extends HTMLElement {
   private _root: Root | null = null;
   private _shadowContainer: HTMLDivElement | null = null;
 
@@ -36,7 +36,7 @@ class AskTetrWidget extends HTMLElement {
 
     // Mount container
     this._shadowContainer = document.createElement("div");
-    this._shadowContainer.id = "ask-tetr-root";
+    this._shadowContainer.id = "ta-lock-root";
     this._shadowContainer.style.cssText = "width:100%;height:100%;";
     shadow.appendChild(this._shadowContainer);
 
@@ -57,10 +57,10 @@ class AskTetrWidget extends HTMLElement {
   private _mount() {
     if (!this._shadowContainer) return;
 
-    // Attribute takes precedence, then window.AskTetrConfig, then undefined
+    // Attribute takes precedence, then window.TaLockConfig, then undefined
     const tenantId =
       this.getAttribute("tenant-id") ||
-      window.AskTetrConfig?.tenantId ||
+      window.TaLockConfig?.tenantId ||
       undefined;
 
     // Unmount previous tree if re-rendering
@@ -77,8 +77,8 @@ class AskTetrWidget extends HTMLElement {
 }
 
 // Register the custom element (idempotent)
-if (!customElements.get("ask-tetr-widget")) {
-  customElements.define("ask-tetr-widget", AskTetrWidget);
+if (!customElements.get("ta-lock-widget")) {
+  customElements.define("ta-lock-widget", TaLockWidget);
 }
 
-export { AskTetrWidget };
+export { TaLockWidget };

@@ -38,7 +38,7 @@ interface TenantContextValue {
   brandName: string;
   ready: boolean;
   /** LMS-injected external config (if present) */
-  externalConfig: AskTetrConfig | null;
+  externalConfig: TaLockConfig | null;
 }
 
 const TenantContext = createContext<TenantContextValue | null>(null);
@@ -60,8 +60,8 @@ export function TenantProvider({ children, tenantId, styleRoot }: TenantProvider
   const [config, setConfig] = useState<TenantConfig | null>(null);
 
   // Read LMS-injected config once
-  const lmsConfig: AskTetrConfig | null = typeof window !== "undefined" && window.AskTetrConfig
-    ? window.AskTetrConfig
+  const lmsConfig: TaLockConfig | null = typeof window !== "undefined" && window.TaLockConfig
+    ? window.TaLockConfig
     : null;
 
   // Resolve effective tenantId: explicit prop > LMS config > default
@@ -107,8 +107,8 @@ export function TenantProvider({ children, tenantId, styleRoot }: TenantProvider
     getPersona: (batch: string, classId: string) =>
       config?.personas[batch]?.[classId],
     theme: config?.theme ?? FALLBACK_THEME,
-    logoUrl: config?.logoUrl ?? "/asktetr-logo.png",
-    brandName: config?.brandName ?? "AskTETR",
+    logoUrl: config?.logoUrl ?? "/ta-lock-logo.png",
+    brandName: config?.brandName ?? "TaLock",
     ready: config !== null,
     externalConfig: lmsConfig,
   };

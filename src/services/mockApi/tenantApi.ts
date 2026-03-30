@@ -60,8 +60,8 @@ export async function fetchTenantConfig(_tenantId: string): Promise<TenantConfig
       primary: "#800000",
       secondary: "#F1B82D",
     },
-    logoUrl: "/asktetr-logo.png",
-    brandName: "AskTETR",
+    logoUrl: "/ta-lock-logo.png",
+    brandName: "TaLock",
   };
 }
 

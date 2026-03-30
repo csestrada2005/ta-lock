@@ -19,13 +19,13 @@ export default defineConfig(({ mode }) => {
       },
     },
 
-    // Widget library build — outputs a single JS file that registers <ask-tetr-widget>
+    // Widget library build — outputs a single JS file that registers <ta-lock-widget>
     ...(isWidgetBuild && {
       build: {
         lib: {
           entry: path.resolve(__dirname, "src/widget.tsx"),
-          name: "AskTetrWidget",
-          fileName: "ask-tetr-widget",
+          name: "TaLockWidget",
+          fileName: "ta-lock-widget",
           formats: ["es", "umd"] as const,
         },
         rollupOptions: {
@@ -33,7 +33,7 @@ export default defineConfig(({ mode }) => {
           external: [],
           output: {
             // Inline all CSS into JS for Shadow DOM injection
-            assetFileNames: "ask-tetr-widget.[ext]",
+            assetFileNames: "ta-lock-widget.[ext]",
           },
         },
         cssCodeSplit: false,
