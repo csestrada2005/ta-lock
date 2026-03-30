@@ -12,7 +12,7 @@ import { CohortAnalyticsView } from "@/components/professor-ai/CohortAnalyticsVi
 import { GuardrailsView } from "@/components/professor-ai/GuardrailsView";
 import { FeedbackDialog } from "@/components/FeedbackDialog";
 import { supabase } from "@/integrations/supabase/client";
-import { COURSES_BY_BATCH_TERM } from "@/data/courses";
+import { useTenant } from "@/contexts/TenantContext";
 import type { Mode, Lecture, ExpertiseLevel, HeaderTab } from "@/components/professor-ai/types";
 import { useProfessorChat } from "@/hooks/useProfessorChat";
 import { useProfessorQuiz } from "@/hooks/useProfessorQuiz";
