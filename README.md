@@ -1,73 +1,19 @@
-# Welcome to your Lovable project
+# Professor AI - Embeddable Tutor Widget
 
-## Project info
+This repository contains the lightweight, embeddable frontend for the Ask Tetr SaaS platform. It is designed to be injected into any Learning Management System (LMS) such as Canvas, Moodle, or Blackboard to provide students with an instant, context-aware AI tutor.
 
-**URL**: https://lovable.dev/projects/93a4e185-b263-4e0d-83e0-9cf4863ef461
+## Architecture Overview
 
-## How can I edit this code?
+Unlike traditional Single Page Applications (SPAs), this project is built as a highly encapsulated Web Component. 
 
-There are several ways of editing your application.
+* **Shadow DOM Encapsulation:** The React application mounts inside a Shadow DOM. This guarantees zero CSS conflicts with the host LMS and prevents our Tailwind utility classes from leaking into the parent page.
+* **Context Injection:** The widget operates without a login screen or manual course selection UI. It relies entirely on a secure context payload passed by the host environment upon initialization.
+* **Dynamic Theming:** Brand colors and logos are fetched at runtime and applied via CSS custom properties, allowing every college to have a uniquely branded widget.
 
-**Use Lovable**
+## Development Setup
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/93a4e185-b263-4e0d-83e0-9cf4863ef461) and start prompting.
+This project uses Bun for dependency management.
 
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
-
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/93a4e185-b263-4e0d-83e0-9cf4863ef461) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+1. Install dependencies:
+   ```bash
+   bun install
