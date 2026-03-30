@@ -277,7 +277,7 @@ const ProfessorAI = () => {
 
   if (!selectedCourse) {
     return (
-      <div className="flex h-dvh items-center justify-center bg-background overflow-y-auto">
+      <div className="flex h-full items-center justify-center bg-background overflow-y-auto">
         <ProfessorCourseSelection
           batch={selectedBatch}
           term={selectedTerm}
