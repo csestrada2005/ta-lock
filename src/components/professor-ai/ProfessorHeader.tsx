@@ -70,6 +70,7 @@ export const ProfessorHeader = ({
   onTabChange,
   isAdmin,
 }: ProfessorHeaderProps) => {
+  const { brandName } = useTenant();
   const selectedCourseDisplay = courses.find(c => c.id === selectedCourse)?.name;
   const termOptions = TERM_OPTIONS_BY_BATCH[selectedBatch] || [];
   const selectedTermLabel = termOptions.find(t => t.value === selectedTerm)?.label || selectedTerm;
