@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { fetchTenantConfig, resolveDisplayName, type TenantConfig, type Course } from "@/services/mockApi";
-import { COURSES_BY_BATCH_TERM } from "@/data/courses";
+import type { COURSES_BY_BATCH_TERM } from "@/data/courses";
 
 interface TenantContextValue {
   /** Full personas map (includes modes + cohort data) */
