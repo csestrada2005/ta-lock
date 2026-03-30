@@ -1,3 +1,4 @@
+import { useTenant } from "@/contexts/TenantContext";
 import { Button } from "@/components/ui/button";
 import FeatureCard from "@/components/FeatureCard";
 import StepCard from "@/components/StepCard";
