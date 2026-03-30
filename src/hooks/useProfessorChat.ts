@@ -31,6 +31,8 @@ interface UseProfessorChatProps {
   mode: Mode;
   expertiseLevel: ExpertiseLevel;
   onExpertiseLevelChange?: (level: ExpertiseLevel) => void;
+  /** Personas data from TenantContext */
+  personas: Record<string, any>;
 }
 
 export const useProfessorChat = ({
