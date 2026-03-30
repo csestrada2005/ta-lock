@@ -232,7 +232,7 @@ export const ProfessorCourseSelection = ({
   };
 
   return (
-    <div className="w-full max-w-4xl px-4 py-6 md:py-8 overflow-y-auto max-h-[calc(100vh-60px)]">
+    <div className="w-full max-w-4xl px-4 py-6 md:py-8 overflow-y-auto max-h-full">
       <div className="mb-6">
         <Button
           variant="ghost"

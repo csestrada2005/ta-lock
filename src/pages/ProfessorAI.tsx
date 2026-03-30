@@ -253,7 +253,7 @@ const ProfessorAI = () => {
 
   if (!selectedBatch) {
     return (
-      <div className="flex h-dvh items-center justify-center bg-background">
+      <div className="flex h-full items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -261,7 +261,7 @@ const ProfessorAI = () => {
 
   if (!selectedTerm) {
     return (
-      <div className="flex h-dvh items-center justify-center bg-background">
+      <div className="flex h-full items-center justify-center bg-background">
         <ProfessorTermSelection
           batch={selectedBatch} 
           onTermSelect={handleTermSelect} 
@@ -277,7 +277,7 @@ const ProfessorAI = () => {
 
   if (!selectedCourse) {
     return (
-      <div className="flex h-dvh items-center justify-center bg-background overflow-y-auto">
+      <div className="flex h-full items-center justify-center bg-background overflow-y-auto">
         <ProfessorCourseSelection
           batch={selectedBatch}
           term={selectedTerm}
@@ -359,7 +359,7 @@ const ProfessorAI = () => {
   };
 
   return (
-    <div className="flex h-dvh bg-background text-foreground overflow-hidden">
+    <div className="flex h-full bg-background text-foreground overflow-hidden">
       <ProfessorSidebarNew
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(!sidebarOpen)}
