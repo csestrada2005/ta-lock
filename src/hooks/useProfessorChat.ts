@@ -31,8 +31,6 @@ interface UseProfessorChatProps {
   mode: Mode;
   expertiseLevel: ExpertiseLevel;
   onExpertiseLevelChange?: (level: ExpertiseLevel) => void;
-  /** Personas data from TenantContext */
-  personas: Record<string, any>;
 }
 
 export const useProfessorChat = ({
@@ -42,7 +40,6 @@ export const useProfessorChat = ({
   mode,
   expertiseLevel,
   onExpertiseLevelChange,
-  personas: personasData,
 }: UseProfessorChatProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -240,10 +237,7 @@ export const useProfessorChat = ({
       // Create the message with file context for the API
       const apiUserMessage: Message = { role: "user", content: messageContent };
 
-      // Resolve course display name for the backend
-      const cohortPersonas = (personasData as any)[selectedBatch || "2029"] || {};
-      const courseInfo = cohortPersonas[selectedCourse || ""];
-      const courseDisplayName = courseInfo?.display_name || selectedCourse;
+      const courseDisplayName = selectedCourse;
 
       // Limit history to last 20 messages to keep requests bounded
       const recentMessages = messages.slice(-20);

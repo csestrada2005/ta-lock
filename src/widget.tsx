@@ -5,7 +5,7 @@
  *  1. Attaches a Shadow DOM for CSS isolation
  *  2. Injects Tailwind + app CSS into the shadow root
  *  3. Renders the full React app inside the shadow root
- *  4. Reads the `tenant-id` attribute and passes it to TenantProvider
+ *  4. Reads the `tenant-id` attribute and passes it to TaLockProvider
  */
 
 import { createRoot, type Root } from "react-dom/client";

@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Mode, HeaderTab } from "./types";
 import type { Course } from "@/services/mockApi";
-import { useTenant } from "@/contexts/TenantContext";
+import { useTaLock } from "@/contexts/TenantContext";
 
 interface ProfessorHeaderProps {
   sidebarOpen: boolean;
@@ -70,7 +70,7 @@ export const ProfessorHeader = ({
   onTabChange,
   isAdmin,
 }: ProfessorHeaderProps) => {
-  const { brandName } = useTenant();
+  const { brandName } = useTaLock();
   const selectedCourseDisplay = courses.find(c => c.id === selectedCourse)?.name;
   const termOptions = TERM_OPTIONS_BY_BATCH[selectedBatch] || [];
   const selectedTermLabel = termOptions.find(t => t.value === selectedTerm)?.label || selectedTerm;

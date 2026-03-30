@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { fetchTenantConfig, resolveDisplayName, type TenantConfig, type Course, type ThemeColors } from "@/services/mockApi";
+import { fetchTenantConfig } from "@/services/mockApi";
 
 // ---------- hex → HSL helper ----------
 function hexToHsl(hex: string): string {
@@ -24,59 +24,79 @@ function hexToHsl(hex: string): string {
   return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
 }
 
+// ---------- defaults ----------
+const FALLBACK_THEME = { primary: "#800000", secondary: "#F1B82D" };
+const FALLBACK_BRAND_NAME = "TaLock";
+const FALLBACK_LOGO_URL = "/ta-lock-logo.png";
+const FALLBACK_TENANT_ID = "talock";
+
 // ---------- context value ----------
-interface TenantContextValue {
-  personas: Record<string, any>;
-  modes: Record<string, { system_prompt: string; initial_message: string }>;
-  coursesByBatchTerm: Record<string, Record<string, Course[]>>;
-  getDisplayName: (classId: string) => string;
-  getCourses: (batch: string, term: string) => Course[];
-  getPersona: (batch: string, classId: string) => Record<string, any> | undefined;
-  theme: ThemeColors;
-  logoUrl: string;
+interface TaLockContextValue {
+  // Identity
+  tenantId: string;
+  courseId: string;
+  studentId: string;
+  token: string;
+  cohortId: string;
+  term: string;
+  locale: string;
+  // Branding (resolved from LMS override > API config > defaults)
   brandName: string;
+  logoUrl: string;
+  theme: { primary: string; secondary: string };
+  // Loading state
   ready: boolean;
-  /** LMS-injected external config (if present) */
-  externalConfig: TaLockConfig | null;
+  // Raw config reference
+  lmsConfig: TaLockConfig | null;
 }
 
-const TenantContext = createContext<TenantContextValue | null>(null);
+const TaLockContext = createContext<TaLockContextValue | null>(null);
 
-const DEFAULT_TENANT_ID = "tetr";
-
-// Default theme used while config is loading
-const FALLBACK_THEME: ThemeColors = { primary: "#800000", secondary: "#F1B82D" };
-
-interface TenantProviderProps {
+interface TaLockProviderProps {
   children: ReactNode;
-  /** Tenant identifier — defaults to "tetr" */
+  /** From web component attribute — overrides window.TaLockConfig.tenantId */
   tenantId?: string;
-  /** Optional Shadow DOM root to inject CSS variables into instead of document.documentElement */
+  /** Optional Shadow DOM container — CSS variables are injected here instead of document.documentElement */
   styleRoot?: HTMLElement | null;
 }
 
-export function TenantProvider({ children, tenantId, styleRoot }: TenantProviderProps) {
-  const [config, setConfig] = useState<TenantConfig | null>(null);
+export function TaLockProvider({ children, tenantId, styleRoot }: TaLockProviderProps) {
+  // Read LMS config once at mount; it is set by the host page before the widget loads
+  const lmsConfig: TaLockConfig | null =
+    typeof window !== "undefined" && window.TaLockConfig
+      ? window.TaLockConfig
+      : null;
 
-  // Read LMS-injected config once
-  const lmsConfig: TaLockConfig | null = typeof window !== "undefined" && window.TaLockConfig
-    ? window.TaLockConfig
-    : null;
+  // Priority: prop (web component attribute) > LMS config > fallback
+  const effectiveTenantId = tenantId ?? lmsConfig?.tenantId ?? FALLBACK_TENANT_ID;
 
-  // Resolve effective tenantId: explicit prop > LMS config > default
-  const effectiveTenantId = tenantId ?? lmsConfig?.tenantId ?? DEFAULT_TENANT_ID;
+  const [apiTheme, setApiTheme] = useState<{ primary: string; secondary: string } | null>(null);
+  const [apiLogoUrl, setApiLogoUrl] = useState<string | null>(null);
+  const [apiBrandName, setApiBrandName] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    fetchTenantConfig(effectiveTenantId).then(setConfig);
+    fetchTenantConfig(effectiveTenantId).then((cfg) => {
+      setApiTheme(cfg.theme);
+      setApiLogoUrl(cfg.logoUrl);
+      setApiBrandName(cfg.brandName);
+      setReady(true);
+    });
   }, [effectiveTenantId]);
 
-  // Inject theme CSS variables into :root whenever theme changes
-  useEffect(() => {
-    const theme = config?.theme ?? FALLBACK_THEME;
-    const root = styleRoot ?? document.documentElement;
+  // Branding resolution: LMS theme override > API config > hardcoded defaults
+  const resolvedTheme = {
+    primary: lmsConfig?.theme?.primary ?? apiTheme?.primary ?? FALLBACK_THEME.primary,
+    secondary: lmsConfig?.theme?.secondary ?? apiTheme?.secondary ?? FALLBACK_THEME.secondary,
+  };
+  const resolvedLogoUrl = lmsConfig?.theme?.logoUrl ?? apiLogoUrl ?? FALLBACK_LOGO_URL;
+  const resolvedBrandName = lmsConfig?.theme?.brandName ?? apiBrandName ?? FALLBACK_BRAND_NAME;
 
-    const primaryHsl = hexToHsl(theme.primary);
-    const secondaryHsl = hexToHsl(theme.secondary);
+  // Inject theme CSS variables whenever theme or styleRoot changes
+  useEffect(() => {
+    const root = styleRoot ?? document.documentElement;
+    const primaryHsl = hexToHsl(resolvedTheme.primary);
+    const secondaryHsl = hexToHsl(resolvedTheme.secondary);
 
     root.style.setProperty("--primary", primaryHsl);
     root.style.setProperty("--accent", primaryHsl);
@@ -93,30 +113,36 @@ export function TenantProvider({ children, tenantId, styleRoot }: TenantProvider
     root.style.setProperty("--shadow-soft", `0 4px 20px -4px hsl(${primaryHsl} / 0.2)`);
     root.style.setProperty("--shadow-hover", `0 8px 30px -4px hsl(${primaryHsl} / 0.35)`);
     root.style.setProperty("--shadow-glow", `0 0 40px -10px hsl(${primaryHsl} / 0.4)`);
-  }, [config?.theme, styleRoot]);
+  }, [resolvedTheme.primary, resolvedTheme.secondary, styleRoot]);
 
-  const value: TenantContextValue = {
-    personas: config?.personas ?? {},
-    modes: config?.modes ?? {},
-    coursesByBatchTerm: config?.coursesByBatchTerm ?? {},
-    getDisplayName: (classId: string) =>
-      config ? resolveDisplayName(config.personas, classId) : classId,
-    getCourses: (batch: string, term: string) =>
-      config?.coursesByBatchTerm[batch]?.[term] ?? [],
-    getPersona: (batch: string, classId: string) =>
-      config?.personas[batch]?.[classId],
-    theme: config?.theme ?? FALLBACK_THEME,
-    logoUrl: config?.logoUrl ?? "/ta-lock-logo.png",
-    brandName: config?.brandName ?? "TaLock",
-    ready: config !== null,
-    externalConfig: lmsConfig,
+  const value: TaLockContextValue = {
+    tenantId: effectiveTenantId,
+    courseId: lmsConfig?.courseId ?? "",
+    studentId: lmsConfig?.studentId ?? "",
+    token: lmsConfig?.token ?? "",
+    cohortId: lmsConfig?.cohortId ?? "",
+    term: lmsConfig?.term ?? "",
+    locale: lmsConfig?.locale ?? "en-US",
+    brandName: resolvedBrandName,
+    logoUrl: resolvedLogoUrl,
+    theme: resolvedTheme,
+    ready,
+    lmsConfig,
   };
 
-  return <TenantContext.Provider value={value}>{children}</TenantContext.Provider>;
+  return <TaLockContext.Provider value={value}>{children}</TaLockContext.Provider>;
 }
 
-export function useTenant() {
-  const ctx = useContext(TenantContext);
-  if (!ctx) throw new Error("useTenant must be used within TenantProvider");
+export function useTaLock(): TaLockContextValue {
+  const ctx = useContext(TaLockContext);
+  if (!ctx) throw new Error("useTaLock must be used within TaLockProvider");
   return ctx;
+}
+
+/** @deprecated Use `useTaLock()` instead. Will be removed in a future release. */
+export function useTenant(): TaLockContextValue {
+  if (import.meta.env.DEV) {
+    console.warn("[TaLock] useTenant() is deprecated — please migrate to useTaLock().");
+  }
+  return useTaLock();
 }

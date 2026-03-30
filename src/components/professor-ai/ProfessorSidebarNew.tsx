@@ -19,7 +19,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useTenant } from "@/contexts/TenantContext";
+import { useTaLock } from "@/contexts/TenantContext";
 import { cn } from "@/lib/utils";
 import { ChatActionsMenu } from "./ChatActionsMenu";
 import {
@@ -97,8 +97,8 @@ export const ProfessorSidebarNew = ({
   onLogout,
   onFeedback,
 }: ProfessorSidebarNewProps) => {
-  const { personas, brandName } = useTenant();
-  const getDisplayName = (classId: string) => getDisplayNameFromPersonas(personas, classId);
+  const { brandName } = useTaLock();
+  const getDisplayName = (classId: string) => classId;
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");

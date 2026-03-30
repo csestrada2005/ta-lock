@@ -6,13 +6,13 @@ import { QuizView } from "@/components/professor-ai/QuizView";
 import { ChatView } from "@/components/professor-ai/ChatView";
 import { FeedbackDialog } from "@/components/FeedbackDialog";
 import { supabase } from "@/integrations/supabase/client";
-import { useTenant } from "@/contexts/TenantContext";
+import { useTaLock } from "@/contexts/TenantContext";
 import type { Mode, Lecture, ExpertiseLevel, HeaderTab } from "@/components/professor-ai/types";
 import { useProfessorChat } from "@/hooks/useProfessorChat";
 import { useProfessorQuiz } from "@/hooks/useProfessorQuiz";
 
 const ProfessorAI = () => {
-  const { getCourses, getPersona, personas, ready: tenantReady, externalConfig } = useTenant();
+  const { lmsConfig } = useTaLock();
 
   // ── Derive batch / term / course from LMS config or user email ──
   const [mode, setMode] = useState<Mode>("Study");
@@ -32,8 +32,7 @@ const ProfessorAI = () => {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  const availableCourses =
-    selectedBatch && selectedTerm ? getCourses(selectedBatch, selectedTerm) : [];
+  const availableCourses: { id: string; name: string }[] = [];
 
   const filteredLectures = selectedCourse
     ? lectures.filter((l) => l.class_name === selectedCourse)
@@ -51,7 +50,6 @@ const ProfessorAI = () => {
     mode,
     expertiseLevel,
     onExpertiseLevelChange: setExpertiseLevel,
-    personas,
   });
 
   const {
@@ -90,12 +88,12 @@ const ProfessorAI = () => {
   useEffect(() => {
     const init = async () => {
       // If LMS config provides courseId, we can skip user-email heuristics
-      if (externalConfig?.courseId) {
+      if (lmsConfig?.courseId) {
         const batch = "2029"; // default; LMS could extend this later
         const term = "term1";
         setSelectedBatch(batch);
         setSelectedTerm(term);
-        setSelectedCourse(externalConfig.courseId);
+        setSelectedCourse(lmsConfig.courseId);
         localStorage.setItem("professorSelectedBatch", batch);
         localStorage.setItem("professorSelectedTerm", term);
         return;
@@ -154,7 +152,7 @@ const ProfessorAI = () => {
 
     init();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [externalConfig?.courseId]);
+  }, [lmsConfig?.courseId]);
 
   // ── Fetch lectures ──
   useEffect(() => {

@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { TenantProvider } from "@/contexts/TenantContext";
+import { TaLockProvider } from "@/contexts/TenantContext";
 import { ChatBubbleWidget } from "@/components/ChatBubbleWidget";
 import ProfessorAI from "./pages/ProfessorAI";
 
@@ -17,7 +17,7 @@ interface AppProps {
 
 const App = ({ tenantId, styleRoot, embed = false }: AppProps = {}) => (
   <QueryClientProvider client={queryClient}>
-    <TenantProvider tenantId={tenantId} styleRoot={styleRoot}>
+    <TaLockProvider tenantId={tenantId} styleRoot={styleRoot}>
       <TooltipProvider>
         <Toaster />
         <Sonner />
@@ -25,7 +25,7 @@ const App = ({ tenantId, styleRoot, embed = false }: AppProps = {}) => (
           <ProfessorAI />
         </ChatBubbleWidget>
       </TooltipProvider>
-    </TenantProvider>
+    </TaLockProvider>
   </QueryClientProvider>
 );
 
