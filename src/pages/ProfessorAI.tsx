@@ -253,7 +253,7 @@ const ProfessorAI = () => {
 
   if (!selectedBatch) {
     return (
-      <div className="flex h-dvh items-center justify-center bg-background">
+      <div className="flex h-full items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
