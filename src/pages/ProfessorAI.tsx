@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+
 import { Loader2 } from "lucide-react";
 import { ProfessorTermSelection } from "@/components/professor-ai/ProfessorTermSelection";
 import { ProfessorCourseSelection } from "@/components/professor-ai/ProfessorCourseSelection";
@@ -18,7 +18,7 @@ import { useProfessorChat } from "@/hooks/useProfessorChat";
 import { useProfessorQuiz } from "@/hooks/useProfessorQuiz";
 
 const ProfessorAI = () => {
-  const navigate = useNavigate();
+  
   const { getCourses, getPersona, personas, ready: tenantReady } = useTenant();
   const [mode, setMode] = useState<Mode>("Study");
   const [selectedLecture, setSelectedLecture] = useState<string | null>(null);
@@ -246,7 +246,7 @@ const ProfessorAI = () => {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    navigate("/auth");
+    // Widget simply signs out; host page handles post-logout UX
   };
 
   const handleFeedback = () => setFeedbackOpen(true);
