@@ -70,7 +70,8 @@ export const ChatInterface = React.forwardRef<ChatInterfaceHandle, ChatInterface
   const galleryInputRef = React.useRef<HTMLInputElement>(null);
   const cameraInputRef = React.useRef<HTMLInputElement>(null);
   const [attachMenuOpen, setAttachMenuOpen] = React.useState(false);
-  const batchPersonas = (personas as BatchPersonas)[selectedBatch || "2029"] || {};
+  const { personas: tenantPersonas } = useTenant();
+  const batchPersonas = (tenantPersonas as BatchPersonas)[selectedBatch || "2029"] || {};
   const availableClasses = Object.keys(batchPersonas);
   const {
     toast
