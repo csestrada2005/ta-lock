@@ -47,6 +47,7 @@
     "react-hook-form": "^7.61.1",
     "react-katex": "^3.1.0",
     "react-markdown": "^10.1.0",
+    "react-router-dom": "^7.13.2",
     "recharts": "^2.15.4",
     "rehype-katex": "^7.0.1",
     "rehype-raw": "^7.0.0",
