@@ -43,9 +43,7 @@ const App = () => (
               path="/chat"
               element={
                 <RequireLTI>
-                  <div className="h-screen w-screen">
-                    <ProfessorAI />
-                  </div>
+                  <ProfessorAI />
                 </RequireLTI>
               }
             />

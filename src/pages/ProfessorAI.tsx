@@ -5,7 +5,7 @@ import { ProfessorSidebarNew } from "@/components/professor-ai/ProfessorSidebarN
 import { QuizView } from "@/components/professor-ai/QuizView";
 import { ChatView } from "@/components/professor-ai/ChatView";
 import { FeedbackDialog } from "@/components/FeedbackDialog";
-import { supabase } from "@/integrations/supabase/client";
+
 import { useTaLock } from "@/contexts/TaLockContext";
 import { getAuthToken } from "@/lib/auth";
 import type { Mode, Lecture, ExpertiseLevel } from "@/components/professor-ai/types";
@@ -17,9 +17,8 @@ const ProfessorAI = () => {
 
   const [mode, setMode] = useState<Mode>("Study");
   const [selectedLecture, setSelectedLecture] = useState<string | null>(null);
-  const [selectedCourse, setSelectedCourse] = useState<string | null>(null);
-  const [selectedBatch, setSelectedBatch] = useState<string | null>(null);
-  const [selectedTerm, setSelectedTerm] = useState<string | null>(null);
+  const [selectedCourse, setSelectedCourse] = useState<string | null>(courseId || null);
+  const [selectedBatch, setSelectedBatch] = useState<string | null>(cohortId || null);
   const [lectures, setLectures] = useState<Lecture[]>([]);
   const [lecturesLoading, setLecturesLoading] = useState(false);
   const [lecturesError, setLecturesError] = useState(false);
@@ -27,16 +26,9 @@ const ProfessorAI = () => {
   const [expertiseLevel, setExpertiseLevel] = useState<ExpertiseLevel>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
 
-  const availableCourses: { id: string; name: string }[] = [];
-
   const filteredLectures = selectedCourse
     ? lectures.filter((l) => l.class_name === selectedCourse)
     : [];
-
-  const getSelectedCourseDisplayName = () => {
-    const course = availableCourses.find((c) => c.id === selectedCourse);
-    return course?.name || selectedCourse;
-  };
 
   const chat = useProfessorChat({
     selectedCourse,
@@ -56,16 +48,13 @@ const ProfessorAI = () => {
     isGeneratingDiagnostic,
   } = chat;
 
-  const quiz = useProfessorQuiz(getSelectedCourseDisplayName() || undefined);
+  const quiz = useProfessorQuiz(selectedCourse || undefined);
 
-  // ── Initialise batch / term / course from LMS config ──
+  // Sync from LTI context if it changes after mount
   useEffect(() => {
-    if (courseId) {
-      setSelectedCourse(courseId);
-      setSelectedBatch(cohortId || "");
-      setSelectedTerm(term || "");
-    }
-  }, [courseId, cohortId, term]);
+    if (courseId) setSelectedCourse(courseId);
+    if (cohortId) setSelectedBatch(cohortId);
+  }, [courseId, cohortId]);
 
   // ── Fetch lectures ──
   useEffect(() => {
@@ -129,13 +118,6 @@ const ProfessorAI = () => {
 
   const handleStartQuiz = () => {};
 
-  const handleCourseSelect = (courseId: string) => {
-    setSelectedCourse(courseId);
-    setSelectedLecture(null);
-    setExpertiseLevel(null);
-    chat.resetChat(true);
-    quiz.resetQuiz();
-  };
 
   const handleModeChange = (newMode: Mode) => {
     setMode(newMode);
@@ -169,7 +151,7 @@ const ProfessorAI = () => {
   // ── Loading state — wait for LMS config to resolve ──
   if (!selectedBatch || !selectedCourse) {
     return (
-      <div className="flex h-full items-center justify-center bg-background">
+      <div className="flex h-screen w-screen items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -235,7 +217,7 @@ const ProfessorAI = () => {
     );
 
   return (
-    <div className="flex h-full bg-background text-foreground overflow-hidden">
+    <div className="flex h-screen w-screen bg-background text-foreground overflow-hidden">
       <ProfessorSidebarNew
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(!sidebarOpen)}
