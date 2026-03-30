@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Mode, HeaderTab } from "./types";
 import type { Course } from "@/services/mockApi";
+import { useTenant } from "@/contexts/TenantContext";
 
 interface ProfessorHeaderProps {
   sidebarOpen: boolean;
