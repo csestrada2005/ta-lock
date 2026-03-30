@@ -34,15 +34,16 @@ export const ChatBubbleWidget = ({ children, defaultOpen = true }: ChatBubbleWid
           onClick={() => setIsOpen(true)}
           className={cn(
             "fixed bottom-6 right-6 z-[9999]",
-            "flex items-center gap-2 rounded-full px-5 py-3",
-            "bg-primary text-primary-foreground shadow-lg",
-            "hover:scale-105 active:scale-95 transition-transform",
+            "flex items-center justify-center",
+            "h-14 w-14 rounded-full",
+            "bg-primary text-primary-foreground",
+            "shadow-lg shadow-primary/30",
+            "hover:scale-110 active:scale-95 transition-all duration-200",
             "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
           )}
           aria-label={`Open ${brandName}`}
         >
-          <MessageCircle className="h-5 w-5" />
-          <span className="text-sm font-semibold hidden sm:inline">{brandName}</span>
+          <MessageCircle className="h-6 w-6" />
         </button>
       )}
 
