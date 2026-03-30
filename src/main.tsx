@@ -2,8 +2,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 
-// TODO: PRODUCTION — remove this dev fallback; the host LMS must set window.TaLockConfig before the widget loads
-// ── Development fallback: simulate LMS injecting config ──
+// TODO: PRODUCTION — remove this dev fallback; the host LMS must set window.TaLockConfig before the app loads
 if (!window.TaLockConfig) {
   window.TaLockConfig = {
     tenantId: "mock-tenant-1",
