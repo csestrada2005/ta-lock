@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { MessageCircle, X } from "lucide-react";
-import { useTenant } from "@/contexts/TenantContext";
+import { useTaLock } from "@/contexts/TaLockContext";
 import { cn } from "@/lib/utils";
 
 interface ChatBubbleWidgetProps {
@@ -19,7 +19,7 @@ interface ChatBubbleWidgetProps {
  */
 export const ChatBubbleWidget = ({ children, defaultOpen = true }: ChatBubbleWidgetProps) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
-  const { brandName } = useTenant();
+  const { brandName } = useTaLock();
 
   // Standalone mode — just render children in a full-size container
   if (defaultOpen && isOpen) {

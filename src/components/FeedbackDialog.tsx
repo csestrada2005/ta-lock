@@ -34,11 +34,11 @@ export const FeedbackDialog = ({ open, onOpenChange }: FeedbackDialogProps) => {
 
     setIsSubmitting(true);
     try {
-      const { data: session } = await supabase.auth.getSession();
-      if (!session.session) throw new Error("Not authenticated");
+      const userId = window.TaLockConfig?.studentId ?? "";
+      if (!userId) throw new Error("Not authenticated");
 
       const { error } = await supabase.from("feedback").insert({
-        user_id: session.session.user.id,
+        user_id: userId,
         message: feedback,
       });
 

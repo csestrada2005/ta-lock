@@ -1,12 +1,3 @@
-export {
-  fetchTenantConfig,
-  resolveDisplayName,
-} from "./tenantApi";
+export { fetchTenantConfig } from "./tenantApi";
 
-export type {
-  Course,
-  PersonaConfig,
-  ModeConfig,
-  TenantConfig,
-  ThemeColors,
-} from "./tenantApi";
+export type { Course, TenantConfig, ThemeColors } from "./tenantApi";

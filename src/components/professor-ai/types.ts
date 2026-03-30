@@ -14,24 +14,6 @@ export interface Lecture {
   class_name?: string;
 }
 
-// Persona / course definition in personas.json
-export interface CoursePersona {
-  display_name: string;
-  system_prompt: string;
-  initial_message: string;
-  professor_name?: string;
-}
-
-// Mode definition in personas.json
-export interface ModePersona {
-  system_prompt: string;
-  initial_message: string;
-}
-
-export interface PersonasData {
-  modes: Record<string, ModePersona>;
-  [cohort: string]: Record<string, CoursePersona> | Record<string, ModePersona>;
-}
 
 // Diagnostic Quiz types
 export interface DiagnosticQuestion {
@@ -66,41 +48,7 @@ export interface SystemEvent {
 }
 
 // Header tab type
-export type HeaderTab = "chat" | "progress" | "analytics" | "guardrails";
-
-// Analytics types
-export interface CohortAnalyticsTopic {
-  topic: string;
-  gap_count: number;
-  mastery_count: number;
-  gap_rate: number;
-  avg_attempts: number;
-  most_common_bloom_gap: string;
-}
-
-export interface StudentMastery {
-  topic: string;
-  status: "Mastery" | "Gap";
-  bloom_level_achieved: string;
-}
-
-export interface StudentBlindSpot {
-  topic: string;
-  gap_count: number;
-  last_seen: string;
-}
-
-// Guardrails types
-export interface GuardrailsConfig {
-  professor_id: string;
-  course_key: string;
-  cohort_id: string;
-  max_hints_per_concept: number;
-  socratic_mode_enforced: boolean;
-  direct_answer_bloom_threshold: string;
-  restricted_topics: string[];
-  allowed_modes: string[];
-}
+export type HeaderTab = "chat";
 
 // Socratic State types
 export interface SocraticState {

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Ask TETR Widget Demo</title>
+  <title>TaLock Widget Demo</title>
   <style>
     /* Host page styles — proves CSS isolation */
     body {
@@ -29,9 +29,27 @@
   <p>The widget below is fully isolated inside a Shadow DOM.</p>
 
   <div class="widget-container">
-    <ask-tetr-widget tenant-id="tetr"></ask-tetr-widget>
+    <ta-lock-widget tenant-id="talock"></ta-lock-widget>
   </div>
 
+  <script>
+    // Simulate LMS injecting config before the widget boots
+    window.TaLockConfig = {
+      tenantId: "demo-tenant",
+      courseId: "demo-course-101",
+      studentId: "student-demo-1",
+      token: "demo-jwt-token",
+      cohortId: "demo-cohort",
+      term: "spring-2025",
+      locale: "en-US",
+      theme: {
+        primary: "#800000",
+        secondary: "#F1B82D",
+        logoUrl: "",
+        brandName: "TaLock Demo",
+      },
+    };
+  </script>
   <script type="module" src="/src/widget.tsx"></script>
 </body>
 </html>

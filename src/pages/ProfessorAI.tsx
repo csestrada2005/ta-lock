@@ -4,39 +4,30 @@ import { ProfessorHeader } from "@/components/professor-ai/ProfessorHeader";
 import { ProfessorSidebarNew } from "@/components/professor-ai/ProfessorSidebarNew";
 import { QuizView } from "@/components/professor-ai/QuizView";
 import { ChatView } from "@/components/professor-ai/ChatView";
-import { StudentProgressView } from "@/components/professor-ai/StudentProgressView";
-import { CohortAnalyticsView } from "@/components/professor-ai/CohortAnalyticsView";
-import { GuardrailsView } from "@/components/professor-ai/GuardrailsView";
 import { FeedbackDialog } from "@/components/FeedbackDialog";
 import { supabase } from "@/integrations/supabase/client";
-import { useTenant } from "@/contexts/TenantContext";
-import type { Mode, Lecture, ExpertiseLevel, HeaderTab } from "@/components/professor-ai/types";
+import { useTaLock } from "@/contexts/TaLockContext";
+import { getAuthToken } from "@/lib/auth";
+import type { Mode, Lecture, ExpertiseLevel } from "@/components/professor-ai/types";
 import { useProfessorChat } from "@/hooks/useProfessorChat";
 import { useProfessorQuiz } from "@/hooks/useProfessorQuiz";
 
 const ProfessorAI = () => {
-  const { getCourses, getPersona, personas, ready: tenantReady, externalConfig } = useTenant();
+  const { courseId, cohortId, term, studentId, brandName } = useTaLock();
 
-  // ── Derive batch / term / course from LMS config or user email ──
   const [mode, setMode] = useState<Mode>("Study");
   const [selectedLecture, setSelectedLecture] = useState<string | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<string | null>(null);
   const [selectedBatch, setSelectedBatch] = useState<string | null>(null);
-  const [selectedTerm, setSelectedTerm] = useState<string | null>(() =>
-    localStorage.getItem("professorSelectedTerm"),
-  );
+  const [selectedTerm, setSelectedTerm] = useState<string | null>(null);
   const [lectures, setLectures] = useState<Lecture[]>([]);
   const [lecturesLoading, setLecturesLoading] = useState(false);
   const [lecturesError, setLecturesError] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<HeaderTab>("chat");
-  const [accessToken, setAccessToken] = useState<string | null>(null);
   const [expertiseLevel, setExpertiseLevel] = useState<ExpertiseLevel>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
 
-  const availableCourses =
-    selectedBatch && selectedTerm ? getCourses(selectedBatch, selectedTerm) : [];
+  const availableCourses: { id: string; name: string }[] = [];
 
   const filteredLectures = selectedCourse
     ? lectures.filter((l) => l.class_name === selectedCourse)
@@ -54,7 +45,6 @@ const ProfessorAI = () => {
     mode,
     expertiseLevel,
     onExpertiseLevelChange: setExpertiseLevel,
-    personas,
   });
 
   const {
@@ -68,100 +58,18 @@ const ProfessorAI = () => {
 
   const quiz = useProfessorQuiz(getSelectedCourseDisplayName() || undefined);
 
-  // ── Auth session tracking ──
+  // ── Initialise batch / term / course from LMS config ──
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setAccessToken(session?.access_token ?? null);
-    });
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setAccessToken(session?.access_token ?? null);
-    });
-    return () => subscription.unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, []);
-
-  // ── Resolve batch + course from LMS config or user email ──
-  useEffect(() => {
-    const init = async () => {
-      // If LMS config provides courseId, we can skip user-email heuristics
-      if (externalConfig?.courseId) {
-        const batch = "2029"; // default; LMS could extend this later
-        const term = "term1";
-        setSelectedBatch(batch);
-        setSelectedTerm(term);
-        setSelectedCourse(externalConfig.courseId);
-        localStorage.setItem("professorSelectedBatch", batch);
-        localStorage.setItem("professorSelectedTerm", term);
-        return;
-      }
-
-      // Fallback: derive from authenticated user email
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      let batch = "2029";
-      let isAdminUser = false;
-
-      if (user?.email) {
-        const email = user.email.toLowerCase();
-        if (email.includes("2028")) batch = "2028";
-        else if (email.includes("2029")) batch = "2029";
-      }
-
-      if (user) {
-        const { data: roleData } = await supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", user.id)
-          .eq("role", "admin")
-          .maybeSingle();
-
-        if (roleData) {
-          isAdminUser = true;
-          const storedBatch = localStorage.getItem("professorSelectedBatch");
-          batch =
-            storedBatch && (storedBatch === "2028" || storedBatch === "2029")
-              ? storedBatch
-              : "2029";
-        }
-      }
-
-      setIsAdmin(isAdminUser);
-
-      const storedBatch = localStorage.getItem("professorSelectedBatch");
-      if (!isAdminUser && storedBatch && storedBatch !== batch) {
-        localStorage.removeItem("professorSelectedTerm");
-        setSelectedTerm(null);
-        setSelectedCourse(null);
-        setSelectedLecture(null);
-        chat.resetChat();
-        quiz.resetQuiz();
-      }
-
-      setSelectedBatch(batch);
-      localStorage.setItem("professorSelectedBatch", batch);
-
-      // Auto-select term if stored
-      const storedTerm = localStorage.getItem("professorSelectedTerm");
-      if (storedTerm) setSelectedTerm(storedTerm);
-    };
-
-    init();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [externalConfig?.courseId]);
+    if (courseId) {
+      setSelectedCourse(courseId);
+      setSelectedBatch(cohortId || "");
+      setSelectedTerm(term || "");
+    }
+  }, [courseId, cohortId, term]);
 
   // ── Fetch lectures ──
   useEffect(() => {
-    if (!selectedBatch || !accessToken) return;
+    if (!selectedBatch) return;
 
     const fetchLectures = async () => {
       setLecturesLoading(true);
@@ -170,7 +78,7 @@ const ProfessorAI = () => {
         const headers: Record<string, string> = {
           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           "x-cohort-id": selectedBatch,
-          authorization: `Bearer ${accessToken}`,
+          authorization: `Bearer ${getAuthToken()}`,
         };
         const response = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/professor-chat?endpoint=lectures&mode=${encodeURIComponent(mode)}`,
@@ -196,7 +104,7 @@ const ProfessorAI = () => {
     };
 
     fetchLectures();
-  }, [selectedBatch, mode, accessToken]);
+  }, [selectedBatch, mode]);
 
   // ── Handlers ──
   const sendMessage = async (content: string, isHidden = false) => {
@@ -249,7 +157,6 @@ const ProfessorAI = () => {
     try {
       setSelectedCourse(conversation.class_id);
       setMode(conversation.mode as Mode);
-      setActiveTab("chat");
       await chat.loadConversation(conversation);
       quiz.resetQuiz();
     } catch (error) {
@@ -257,13 +164,9 @@ const ProfessorAI = () => {
     }
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-  };
-
   const handleFeedback = () => setFeedbackOpen(true);
 
-  // ── Loading state — wait for batch + course to resolve ──
+  // ── Loading state — wait for LMS config to resolve ──
   if (!selectedBatch || !selectedCourse) {
     return (
       <div className="flex h-full items-center justify-center bg-background">
@@ -272,81 +175,64 @@ const ProfessorAI = () => {
     );
   }
 
-  const renderTabContent = () => {
-    switch (activeTab) {
-      case "progress":
-        return <StudentProgressView selectedBatch={selectedBatch} />;
-      case "analytics":
-        return isAdmin ? (
-          <CohortAnalyticsView selectedBatch={selectedBatch} />
-        ) : null;
-      case "guardrails":
-        return isAdmin ? (
-          <GuardrailsView
-            selectedBatch={selectedBatch}
-            selectedCourse={selectedCourse}
-          />
-        ) : null;
-      default:
-        return mode === "Quiz" ? (
-          <QuizView
-            quizLoading={quiz.quizLoading}
-            quizResults={quiz.quizResults}
-            currentQuiz={quiz.currentQuiz}
-            onRetry={quiz.handleRetryQuiz}
-            onNewQuiz={handleNewChat}
-            onComplete={quiz.handleQuizComplete}
-            onClose={quiz.handleQuizClose}
-            messages={chat.messages}
-            isLoading={chat.isLoading || quiz.quizLoading}
-            streamingContent={chat.streamingContent}
-            selectedLecture={selectedLecture}
-            selectedCourse={selectedCourse}
-            mode={mode}
-            onSendMessage={sendMessage}
-            onStartQuiz={handleStartQuiz}
-            onCreateNotes={handleCreateNotes}
-            lectures={filteredLectures}
-            onLectureChange={(lecture) => setSelectedLecture(lecture)}
-            lecturesLoading={lecturesLoading}
-            uploadedFile={chat.uploadedFile}
-            onFileUpload={chat.handleFileUpload}
-            sessionId={chat.sessionId}
-            calibrationRequest={calibrationRequest}
-            onCalibrationSelect={() => setCalibrationRequest(null)}
-            diagnosticQuiz={diagnosticQuiz}
-            onDiagnosticSubmit={submitDiagnostic}
-            onDiagnosticClose={() => setDiagnosticQuiz(null)}
-            isGeneratingDiagnostic={isGeneratingDiagnostic}
-          />
-        ) : (
-          <ChatView
-            messages={chat.messages}
-            isLoading={chat.isLoading}
-            streamingContent={chat.streamingContent}
-            selectedLecture={selectedLecture}
-            selectedCourse={selectedCourse}
-            mode={mode}
-            onSendMessage={sendMessage}
-            onStartQuiz={handleStartQuiz}
-            onCreateNotes={handleCreateNotes}
-            lectures={filteredLectures}
-            onLectureChange={(lecture) => setSelectedLecture(lecture)}
-            lecturesLoading={lecturesLoading}
-            uploadedFile={chat.uploadedFile}
-            onFileUpload={chat.handleFileUpload}
-            sessionId={chat.sessionId}
-            calibrationRequest={calibrationRequest}
-            onCalibrationSelect={() => setCalibrationRequest(null)}
-            diagnosticQuiz={diagnosticQuiz}
-            onDiagnosticSubmit={submitDiagnostic}
-            onDiagnosticClose={() => setDiagnosticQuiz(null)}
-            isGeneratingDiagnostic={isGeneratingDiagnostic}
-            socraticState={chat.socraticState}
-          />
-        );
-    }
-  };
+  const renderContent = () =>
+    mode === "Quiz" ? (
+      <QuizView
+        quizLoading={quiz.quizLoading}
+        quizResults={quiz.quizResults}
+        currentQuiz={quiz.currentQuiz}
+        onRetry={quiz.handleRetryQuiz}
+        onNewQuiz={handleNewChat}
+        onComplete={quiz.handleQuizComplete}
+        onClose={quiz.handleQuizClose}
+        messages={chat.messages}
+        isLoading={chat.isLoading || quiz.quizLoading}
+        streamingContent={chat.streamingContent}
+        selectedLecture={selectedLecture}
+        selectedCourse={selectedCourse}
+        mode={mode}
+        onSendMessage={sendMessage}
+        onStartQuiz={handleStartQuiz}
+        onCreateNotes={handleCreateNotes}
+        lectures={filteredLectures}
+        onLectureChange={(lecture) => setSelectedLecture(lecture)}
+        lecturesLoading={lecturesLoading}
+        uploadedFile={chat.uploadedFile}
+        onFileUpload={chat.handleFileUpload}
+        sessionId={chat.sessionId}
+        calibrationRequest={calibrationRequest}
+        onCalibrationSelect={() => setCalibrationRequest(null)}
+        diagnosticQuiz={diagnosticQuiz}
+        onDiagnosticSubmit={submitDiagnostic}
+        onDiagnosticClose={() => setDiagnosticQuiz(null)}
+        isGeneratingDiagnostic={isGeneratingDiagnostic}
+      />
+    ) : (
+      <ChatView
+        messages={chat.messages}
+        isLoading={chat.isLoading}
+        streamingContent={chat.streamingContent}
+        selectedLecture={selectedLecture}
+        selectedCourse={selectedCourse}
+        mode={mode}
+        onSendMessage={sendMessage}
+        onStartQuiz={handleStartQuiz}
+        onCreateNotes={handleCreateNotes}
+        lectures={filteredLectures}
+        onLectureChange={(lecture) => setSelectedLecture(lecture)}
+        lecturesLoading={lecturesLoading}
+        uploadedFile={chat.uploadedFile}
+        onFileUpload={chat.handleFileUpload}
+        sessionId={chat.sessionId}
+        calibrationRequest={calibrationRequest}
+        onCalibrationSelect={() => setCalibrationRequest(null)}
+        diagnosticQuiz={diagnosticQuiz}
+        onDiagnosticSubmit={submitDiagnostic}
+        onDiagnosticClose={() => setDiagnosticQuiz(null)}
+        isGeneratingDiagnostic={isGeneratingDiagnostic}
+        socraticState={chat.socraticState}
+      />
+    );
 
   return (
     <div className="flex h-full bg-background text-foreground overflow-hidden">
@@ -356,7 +242,8 @@ const ProfessorAI = () => {
         onNewChat={handleNewChat}
         onSelectConversation={handleSelectConversation}
         activeConversationId={chat.activeConversationId}
-        onLogout={handleLogout}
+        studentId={studentId}
+        brandName={brandName}
         onFeedback={handleFeedback}
       />
 
@@ -367,19 +254,11 @@ const ProfessorAI = () => {
           sidebarOpen={sidebarOpen}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
           selectedCourse={selectedCourse}
-          onCourseChange={handleCourseSelect}
           selectedMode={mode}
           onModeChange={handleModeChange}
-          selectedBatch={selectedBatch}
-          selectedTerm={selectedTerm || "term1"}
-          onTermChange={() => {}}
-          courses={availableCourses}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          isAdmin={isAdmin}
         />
 
-        {renderTabContent()}
+        {renderContent()}
 
         <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
       </div>
