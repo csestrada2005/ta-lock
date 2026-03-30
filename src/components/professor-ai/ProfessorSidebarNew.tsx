@@ -52,12 +52,11 @@ interface ProfessorSidebarNewProps {
   onFeedback: () => void;
 }
 
-const getDisplayName = (classId: string): string => {
-  const allPersonas = personas as Record<string, any>;
-  for (const batchId of Object.keys(allPersonas)) {
+const getDisplayNameFromPersonas = (personas: Record<string, any>, classId: string): string => {
+  for (const batchId of Object.keys(personas)) {
     if (batchId === "modes") continue;
-    if (allPersonas[batchId]?.[classId]) {
-      return allPersonas[batchId][classId].display_name || classId;
+    if (personas[batchId]?.[classId]) {
+      return personas[batchId][classId].display_name || classId;
     }
   }
   return classId;
