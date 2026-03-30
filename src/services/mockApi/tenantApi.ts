@@ -24,7 +24,7 @@ export interface ModeConfig {
 }
 
 export interface TenantConfig {
-  coursesByBatchTerm: typeof coursesData;
+  coursesByBatchTerm: typeof COURSES_BY_BATCH_TERM;
   personas: Record<string, any>;
   modes: Record<string, ModeConfig>;
 }
