@@ -26,16 +26,9 @@ const ProfessorAI = () => {
   const [expertiseLevel, setExpertiseLevel] = useState<ExpertiseLevel>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
 
-  const availableCourses: { id: string; name: string }[] = [];
-
   const filteredLectures = selectedCourse
     ? lectures.filter((l) => l.class_name === selectedCourse)
     : [];
-
-  const getSelectedCourseDisplayName = () => {
-    const course = availableCourses.find((c) => c.id === selectedCourse);
-    return course?.name || selectedCourse;
-  };
 
   const chat = useProfessorChat({
     selectedCourse,
