@@ -140,7 +140,7 @@ export const ProfessorHeader = ({
 
       {/* Desktop layout */}
       <div className="hidden lg:flex items-center gap-2 py-2 px-4">
-        <span className="text-lg font-bold text-primary shrink-0">AskTETR</span>
+        <span className="text-lg font-bold text-primary shrink-0">{brandName}</span>
         {activeTab === "chat" && (
           <div className="flex items-center gap-2 flex-1 justify-center max-w-3xl px-4">
             <Button
