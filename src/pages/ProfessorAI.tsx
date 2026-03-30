@@ -48,7 +48,7 @@ const ProfessorAI = () => {
     isGeneratingDiagnostic,
   } = chat;
 
-  const quiz = useProfessorQuiz(getSelectedCourseDisplayName() || undefined);
+  const quiz = useProfessorQuiz(selectedCourse || undefined);
 
   // ── Initialise batch / term / course from LMS config ──
   useEffect(() => {
