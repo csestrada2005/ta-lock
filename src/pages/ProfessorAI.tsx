@@ -158,7 +158,7 @@ const ProfessorAI = () => {
   // ── Loading state — wait for LMS config to resolve ──
   if (!selectedBatch || !selectedCourse) {
     return (
-      <div className="flex h-full items-center justify-center bg-background">
+      <div className="flex h-screen w-screen items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
