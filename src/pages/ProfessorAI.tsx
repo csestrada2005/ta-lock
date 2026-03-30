@@ -359,7 +359,7 @@ const ProfessorAI = () => {
   };
 
   return (
-    <div className="flex h-dvh bg-background text-foreground overflow-hidden">
+    <div className="flex h-full bg-background text-foreground overflow-hidden">
       <ProfessorSidebarNew
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(!sidebarOpen)}
