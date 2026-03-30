@@ -97,6 +97,8 @@ export const ProfessorSidebarNew = ({
   onLogout,
   onFeedback,
 }: ProfessorSidebarNewProps) => {
+  const { personas } = useTenant();
+  const getDisplayName = (classId: string) => getDisplayNameFromPersonas(personas, classId);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
