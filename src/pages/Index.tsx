@@ -1,3 +1,4 @@
+import { useTenant } from "@/contexts/TenantContext";
 import { Button } from "@/components/ui/button";
 import FeatureCard from "@/components/FeatureCard";
 import StepCard from "@/components/StepCard";
@@ -19,6 +20,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
   const navigate = useNavigate();
+  const { logoUrl, brandName } = useTenant();
   
   return (
     <div className="min-h-screen bg-background">
@@ -211,8 +213,8 @@ const Index = () => {
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 sm:gap-6">
             <div className="flex items-center justify-center">
               <img 
-                src="/asktetr-logo.png" 
-                alt="Ask TETR - A TETR Way to Study" 
+                src={logoUrl} 
+                alt={brandName} 
                 className="h-16 sm:h-24 w-auto"
               />
             </div>

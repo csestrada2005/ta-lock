@@ -97,7 +97,7 @@ export const ProfessorSidebarNew = ({
   onLogout,
   onFeedback,
 }: ProfessorSidebarNewProps) => {
-  const { personas } = useTenant();
+  const { personas, brandName } = useTenant();
   const getDisplayName = (classId: string) => getDisplayNameFromPersonas(personas, classId);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -413,9 +413,9 @@ export const ProfessorSidebarNew = ({
           <>
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
-                <span className="text-primary font-bold text-xs">AT</span>
+                <span className="text-primary font-bold text-xs">{brandName.slice(0, 2).toUpperCase()}</span>
               </div>
-              <span className="font-bold text-primary">AskTETR</span>
+              <span className="font-bold text-primary">{brandName}</span>
             </div>
             {!isMobile && (
               <Button

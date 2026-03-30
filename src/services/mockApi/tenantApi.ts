@@ -1,7 +1,6 @@
 /**
  * Mock API service layer that simulates fetching tenant configuration,
- * courses, and personas from a backend. In a real implementation, these
- * would be HTTP calls to your config API.
+ * courses, and personas from a backend.
  */
 
 import { COURSES_BY_BATCH_TERM } from "@/data/courses";
@@ -23,10 +22,18 @@ export interface ModeConfig {
   initial_message: string;
 }
 
+export interface ThemeColors {
+  primary: string;   // hex e.g. '#800000'
+  secondary: string; // hex e.g. '#F1B82D'
+}
+
 export interface TenantConfig {
   coursesByBatchTerm: typeof COURSES_BY_BATCH_TERM;
   personas: Record<string, any>;
   modes: Record<string, ModeConfig>;
+  theme: ThemeColors;
+  logoUrl: string;
+  brandName: string;
 }
 
 // Simulated network delay (ms)
@@ -35,7 +42,7 @@ const SIMULATED_DELAY = 50;
 const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 /**
- * Fetch the full tenant configuration (courses + personas + modes).
+ * Fetch the full tenant configuration (courses + personas + modes + theme).
  * In production this would be: GET /api/tenants/{tenantId}/config
  */
 export async function fetchTenantConfig(_tenantId: string): Promise<TenantConfig> {
@@ -48,6 +55,13 @@ export async function fetchTenantConfig(_tenantId: string): Promise<TenantConfig
     coursesByBatchTerm: COURSES_BY_BATCH_TERM,
     personas: allPersonas,
     modes,
+    // Mock theme payload — swap these values to white-label for any tenant
+    theme: {
+      primary: "#800000",
+      secondary: "#F1B82D",
+    },
+    logoUrl: "/asktetr-logo.png",
+    brandName: "AskTETR",
   };
 }
 

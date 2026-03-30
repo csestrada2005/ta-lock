@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { useTenant } from "@/contexts/TenantContext";
 
 const ResetPassword = () => {
+  const { logoUrl, brandName } = useTenant();
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -108,8 +110,8 @@ const ResetPassword = () => {
           <CardHeader className="space-y-1 text-center">
             <div className="flex justify-center mb-4">
               <img
-                src="/asktetr-logo.png"
-                alt="Ask TETR Logo"
+                src={logoUrl}
+                alt={brandName}
                 className="h-16 w-auto"
               />
             </div>
@@ -136,11 +138,11 @@ const ResetPassword = () => {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
-            <img
-              src="/asktetr-logo.png"
-              alt="Ask TETR Logo"
-              className="h-16 w-auto"
-            />
+              <img
+                src={logoUrl}
+                alt={brandName}
+                className="h-16 w-auto"
+              />
           </div>
           <CardTitle className="text-2xl font-bold">Create a New Password</CardTitle>
           <CardDescription>

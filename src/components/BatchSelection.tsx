@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { GraduationCap, Users } from "lucide-react";
+import { useTenant } from "@/contexts/TenantContext";
 
 interface BatchSelectionProps {
   onBatchSelect: (batchId: string) => void;
@@ -22,15 +23,12 @@ const BATCHES = [
 ];
 
 export const BatchSelection = ({ onBatchSelect }: BatchSelectionProps) => {
+  const { logoUrl, brandName } = useTenant();
   return (
     <div className="w-full max-w-2xl">
       <div className="text-center mb-8">
         <div className="flex justify-center mb-4">
-          <img
-            src="/asktetr-logo.png"
-            alt="Ask TETR"
-            className="h-16 w-auto"
-          />
+          <img src={logoUrl} alt={brandName} className="h-16 w-auto" />
         </div>
         <h1 className="text-3xl font-bold text-foreground mb-2">
           Welcome to Ask TETR

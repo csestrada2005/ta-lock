@@ -7,8 +7,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { LogIn, UserPlus } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useTenant } from "@/contexts/TenantContext";
 
 const Auth = () => {
+  const { logoUrl, brandName } = useTenant();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -252,8 +254,8 @@ const Auth = () => {
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
             <img 
-              src="/asktetr-logo.png" 
-              alt="Ask TETR Logo" 
+              src={logoUrl} 
+              alt={brandName} 
               className="h-16 w-auto"
             />
           </div>

@@ -8,4 +8,5 @@ export type {
   PersonaConfig,
   ModeConfig,
   TenantConfig,
+  ThemeColors,
 } from "./tenantApi";
