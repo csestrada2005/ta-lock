@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
 import { fetchTenantConfig } from "@/services/mockApi";
 
 // ---------- hex → HSL helper ----------
@@ -32,7 +32,6 @@ const FALLBACK_TENANT_ID = "talock";
 
 // ---------- context value ----------
 interface TaLockContextValue {
-  // Identity
   tenantId: string;
   courseId: string;
   studentId: string;
@@ -40,40 +39,40 @@ interface TaLockContextValue {
   cohortId: string;
   term: string;
   locale: string;
-  // Branding (resolved from LMS override > API config > defaults)
   brandName: string;
   logoUrl: string;
   theme: { primary: string; secondary: string };
-  // Loading state
   ready: boolean;
-  // Raw config reference
   lmsConfig: TaLockConfig | null;
+  /** Whether a valid LTI session is active */
+  isAuthenticated: boolean;
+  /** Called by LTILaunch to inject decoded JWT claims */
+  setLtiState: (config: TaLockConfig) => void;
 }
 
 const TaLockContext = createContext<TaLockContextValue | null>(null);
 
 interface TaLockProviderProps {
   children: ReactNode;
-  /** From web component attribute — overrides window.TaLockConfig.tenantId */
   tenantId?: string;
-  /** Optional Shadow DOM container — CSS variables are injected here instead of document.documentElement */
   styleRoot?: HTMLElement | null;
 }
 
 export function TaLockProvider({ children, tenantId, styleRoot }: TaLockProviderProps) {
-  // Read LMS config once at mount; it is set by the host page before the widget loads
-  const lmsConfig: TaLockConfig | null =
-    typeof window !== "undefined" && window.TaLockConfig
-      ? window.TaLockConfig
-      : null;
+  const [lmsConfig, setLmsConfig] = useState<TaLockConfig | null>(
+    typeof window !== "undefined" && window.TaLockConfig ? window.TaLockConfig : null,
+  );
 
-  // Priority: prop (web component attribute) > LMS config > fallback
   const effectiveTenantId = tenantId ?? lmsConfig?.tenantId ?? FALLBACK_TENANT_ID;
 
   const [apiTheme, setApiTheme] = useState<{ primary: string; secondary: string } | null>(null);
   const [apiLogoUrl, setApiLogoUrl] = useState<string | null>(null);
   const [apiBrandName, setApiBrandName] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+
+  const setLtiState = useCallback((config: TaLockConfig) => {
+    setLmsConfig(config);
+  }, []);
 
   useEffect(() => {
     fetchTenantConfig(effectiveTenantId).then((cfg) => {
@@ -84,7 +83,6 @@ export function TaLockProvider({ children, tenantId, styleRoot }: TaLockProvider
     });
   }, [effectiveTenantId]);
 
-  // Branding resolution: LMS theme override > API config > hardcoded defaults
   const resolvedTheme = {
     primary: lmsConfig?.theme?.primary ?? apiTheme?.primary ?? FALLBACK_THEME.primary,
     secondary: lmsConfig?.theme?.secondary ?? apiTheme?.secondary ?? FALLBACK_THEME.secondary,
@@ -92,7 +90,6 @@ export function TaLockProvider({ children, tenantId, styleRoot }: TaLockProvider
   const resolvedLogoUrl = lmsConfig?.theme?.logoUrl ?? apiLogoUrl ?? FALLBACK_LOGO_URL;
   const resolvedBrandName = lmsConfig?.theme?.brandName ?? apiBrandName ?? FALLBACK_BRAND_NAME;
 
-  // Inject theme CSS variables whenever theme or styleRoot changes
   useEffect(() => {
     const root = styleRoot ?? document.documentElement;
     const primaryHsl = hexToHsl(resolvedTheme.primary);
@@ -115,6 +112,8 @@ export function TaLockProvider({ children, tenantId, styleRoot }: TaLockProvider
     root.style.setProperty("--shadow-glow", `0 0 40px -10px hsl(${primaryHsl} / 0.4)`);
   }, [resolvedTheme.primary, resolvedTheme.secondary, styleRoot]);
 
+  const isAuthenticated = Boolean(lmsConfig?.token && lmsConfig.token.length > 0);
+
   const value: TaLockContextValue = {
     tenantId: effectiveTenantId,
     courseId: lmsConfig?.courseId ?? "",
@@ -128,6 +127,8 @@ export function TaLockProvider({ children, tenantId, styleRoot }: TaLockProvider
     theme: resolvedTheme,
     ready,
     lmsConfig,
+    isAuthenticated,
+    setLtiState,
   };
 
   return <TaLockContext.Provider value={value}>{children}</TaLockContext.Provider>;
@@ -139,7 +140,7 @@ export function useTaLock(): TaLockContextValue {
   return ctx;
 }
 
-/** @deprecated Use `useTaLock()` instead. Will be removed in a future release. */
+/** @deprecated Use `useTaLock()` instead. */
 export function useTenant(): TaLockContextValue {
   if (import.meta.env.DEV) {
     console.warn("[TaLock] useTenant() is deprecated — please migrate to useTaLock().");
