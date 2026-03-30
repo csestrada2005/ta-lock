@@ -23,12 +23,12 @@ const BATCHES = [
 ];
 
 export const BatchSelection = ({ onBatchSelect }: BatchSelectionProps) => {
+  const { logoUrl, brandName } = useTenant();
   return (
     <div className="w-full max-w-2xl">
       <div className="text-center mb-8">
         <div className="flex justify-center mb-4">
-          <TenantLogo className="h-16 w-auto" />
-        </div>
+          <img src={logoUrl} alt={brandName} className="h-16 w-auto" />
         </div>
         <h1 className="text-3xl font-bold text-foreground mb-2">
           Welcome to Ask TETR
