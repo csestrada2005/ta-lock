@@ -48,7 +48,9 @@ interface ProfessorSidebarNewProps {
   onNewChat: () => void;
   onSelectConversation?: (conversation: Conversation) => void;
   activeConversationId?: string | null;
-  onLogout: () => void;
+  /** LMS-supplied student identifier used for display */
+  studentId?: string;
+  onLogout?: () => void;
   onFeedback: () => void;
 }
 
@@ -94,6 +96,7 @@ export const ProfessorSidebarNew = ({
   onNewChat,
   onSelectConversation,
   activeConversationId,
+  studentId,
   onLogout,
   onFeedback,
 }: ProfessorSidebarNewProps) => {
@@ -103,8 +106,6 @@ export const ProfessorSidebarNew = ({
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [showArchived, setShowArchived] = useState(false);
-  const [userEmail, setUserEmail] = useState<string | undefined>();
-  const [userName, setUserName] = useState<string | undefined>();
 
   const [isDesktop, setIsDesktop] = useState(false);
 
@@ -117,76 +118,6 @@ export const ProfessorSidebarNew = ({
     return () => mq.removeEventListener?.("change", apply);
   }, []);
 
-  const applyUserInfo = useCallback((user: { email?: string; user_metadata?: any } | null) => {
-    if (!user) {
-      setUserEmail(undefined);
-      setUserName(undefined);
-      return;
-    }
-
-    const email = user.email;
-    setUserEmail(email);
-
-    const nameFromMetadata =
-      user.user_metadata?.full_name ||
-      user.user_metadata?.name ||
-      user.user_metadata?.display_name ||
-      user.user_metadata?.preferred_username;
-
-    if (nameFromMetadata) {
-      setUserName(String(nameFromMetadata));
-      return;
-    }
-
-    if (email) {
-      const emailPrefix = email.split("@")[0];
-      const formattedName = emailPrefix
-        .replace(/[._-]/g, " ")
-        .split(" ")
-        .filter(Boolean)
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-        .join(" ");
-      setUserName(formattedName || undefined);
-      return;
-    }
-
-    setUserName(undefined);
-  }, []);
-
-  // Load user info and persist across refreshes
-  useEffect(() => {
-    let alive = true;
-
-    const loadUser = async () => {
-      // On refresh, getUser() can temporarily return null while session is being hydrated.
-      // getSession() is the reliable source for initial render.
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (!alive) return;
-      applyUserInfo(sessionData.session?.user ?? null);
-
-      // Fallback: if session isn't ready yet, try getUser() once.
-      if (!sessionData.session) {
-        const { data: userData } = await supabase.auth.getUser();
-        if (!alive) return;
-        applyUserInfo(userData.user ?? null);
-      }
-    };
-
-    loadUser();
-
-    // Listen for auth state changes to update user info when refreshed
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!alive) return;
-      applyUserInfo(session?.user ?? null);
-    });
-
-    return () => {
-      alive = false;
-      subscription.unsubscribe();
-    };
-  }, [applyUserInfo]);
 
   const loadConversations = useCallback(async () => {
     try {
@@ -401,8 +332,8 @@ export const ProfessorSidebarNew = ({
     );
   };
 
-  const userInitials = getInitials(userEmail, userName);
-  const displayName = userName || (userEmail ? userEmail.split('@')[0] : 'Guest');
+  const userInitials = getInitials(undefined, studentId);
+  const displayName = studentId || "Student";
 
   // Sidebar content - shared between mobile and desktop
   const sidebarContent = (isMobile: boolean) => (
@@ -586,11 +517,6 @@ export const ProfessorSidebarNew = ({
                   <p className="text-sm font-medium text-foreground truncate">
                     {displayName}
                   </p>
-                  {userEmail && userName && (
-                    <p className="text-xs text-muted-foreground truncate">
-                      {userEmail}
-                    </p>
-                  )}
                 </div>
                 <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" />
               </button>
@@ -600,14 +526,18 @@ export const ProfessorSidebarNew = ({
                 <MessageCircle className="w-4 h-4 mr-2" />
                 Send Feedback
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem 
-                onClick={onLogout} 
-                className="cursor-pointer text-destructive focus:text-destructive"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Log out
-              </DropdownMenuItem>
+              {onLogout && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={onLogout}
+                    className="cursor-pointer text-destructive focus:text-destructive"
+                  >
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Log out
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         ) : (
@@ -622,23 +552,24 @@ export const ProfessorSidebarNew = ({
             <DropdownMenuContent align="start" side="right" className="w-48">
               <div className="px-2 py-1.5">
                 <p className="text-sm font-medium truncate">{displayName}</p>
-                {userEmail && (
-                  <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
-                )}
               </div>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={onFeedback} className="cursor-pointer">
                 <MessageCircle className="w-4 h-4 mr-2" />
                 Send Feedback
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem 
-                onClick={onLogout} 
-                className="cursor-pointer text-destructive focus:text-destructive"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Log out
-              </DropdownMenuItem>
+              {onLogout && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={onLogout}
+                    className="cursor-pointer text-destructive focus:text-destructive"
+                  >
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Log out
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         )}

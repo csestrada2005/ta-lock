@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TaLockProvider } from "@/contexts/TenantContext";
 import { ChatBubbleWidget } from "@/components/ChatBubbleWidget";
+import { TokenGuard } from "@/components/TokenGuard";
 import ProfessorAI from "./pages/ProfessorAI";
 
 const queryClient = new QueryClient();
@@ -21,9 +22,11 @@ const App = ({ tenantId, styleRoot, embed = false }: AppProps = {}) => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <ChatBubbleWidget defaultOpen={!embed}>
-          <ProfessorAI />
-        </ChatBubbleWidget>
+        <TokenGuard>
+          <ChatBubbleWidget defaultOpen={!embed}>
+            <ProfessorAI />
+          </ChatBubbleWidget>
+        </TokenGuard>
       </TooltipProvider>
     </TaLockProvider>
   </QueryClientProvider>

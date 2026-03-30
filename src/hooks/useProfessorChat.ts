@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect, useCallback, MutableRefObject } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getAuthToken } from "@/lib/auth";
 import { toast } from "@/hooks/use-toast";
 import type { Mode, Message, ExpertiseLevel, DiagnosticQuizData, DiagnosticSubmission, SystemEvent, SocraticState } from "@/components/professor-ai/types";
 
@@ -156,10 +157,8 @@ export const useProfessorChat = ({
 
   const saveConversationAndMessage = async (userContent: string, assistantContent: string) => {
     try {
-      const { data: session } = await supabase.auth.getSession();
-      if (!session.session) return null;
-
-      const userId = session.session.user.id;
+      const userId = window.TaLockConfig?.studentId ?? "";
+      if (!userId) return null;
       let conversationId = activeConversationId;
 
       // Create conversation if it doesn't exist
@@ -226,10 +225,7 @@ export const useProfessorChat = ({
     setIsGeneratingDiagnostic(false);
 
     try {
-      // Fetch authenticated user ID and session token for backend
-      const { data: sessionData } = await supabase.auth.getSession();
-      const userId = sessionData.session?.user?.id || null;
-      const token = sessionData.session?.access_token || "";
+      const studentId = window.TaLockConfig?.studentId ?? "";
 
       // Send selectedLecture as null or empty string if "All Lectures" is selected or not selected
       const lectureToSend = selectedLecture === "__all__" ? null : selectedLecture;
@@ -249,8 +245,10 @@ export const useProfessorChat = ({
           headers: {
             "Content-Type": "application/json",
             "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            "Authorization": `Bearer ${token}`,
-            "x-cohort-id": selectedBatch || "2029",
+            "Authorization": `Bearer ${getAuthToken()}`,
+            "x-cohort-id": window.TaLockConfig?.cohortId ?? "",
+            "x-student-id": window.TaLockConfig?.studentId ?? "",
+            "x-tenant-id": window.TaLockConfig?.tenantId ?? "",
           },
           body: JSON.stringify({
             messages: [...recentMessages, apiUserMessage],
@@ -262,7 +260,8 @@ export const useProfessorChat = ({
             session_id: sessionIdRef.current, // Session ID for backend chat persistence
             cohort_id: selectedBatch,
             expertise_level: expertiseLevel, // Adaptive learning - user's expertise level
-            user_id: userId, // Authenticated user ID for persistent memory
+            user_id: studentId,
+            studentId,
             file_context: uploadedFile ? `[CONTEXT FROM FILE: ${uploadedFile.name}]\n${uploadedFile.content}` : null,
           }),
         }
@@ -514,10 +513,7 @@ export const useProfessorChat = ({
   // Submit diagnostic quiz results to backend
   const submitDiagnostic = async (payload: DiagnosticSubmission) => {
     try {
-      // Fetch authenticated user ID and session token for backend
-      const { data: sessionData } = await supabase.auth.getSession();
-      const userId = sessionData.session?.user?.id || null;
-      const token = sessionData.session?.access_token || "";
+      const studentId = window.TaLockConfig?.studentId ?? "";
 
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/professor-chat`,
@@ -526,15 +522,18 @@ export const useProfessorChat = ({
           headers: {
             "Content-Type": "application/json",
             "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            "Authorization": `Bearer ${token}`,
-            "x-cohort-id": selectedBatch || "2029",
+            "Authorization": `Bearer ${getAuthToken()}`,
+            "x-cohort-id": window.TaLockConfig?.cohortId ?? "",
+            "x-student-id": window.TaLockConfig?.studentId ?? "",
+            "x-tenant-id": window.TaLockConfig?.tenantId ?? "",
           },
           body: JSON.stringify({
             endpoint: "submit-diagnostic",
             session_id: sessionIdRef.current,
             cohort_id: selectedBatch,
             diagnostic_results: payload,
-            user_id: userId, // Authenticated user ID for persistent memory
+            user_id: studentId,
+            studentId,
           }),
         }
       );
@@ -587,9 +586,7 @@ export const useProfessorChat = ({
   const updateSocraticState = async (userMessage: string) => {
     if (mode !== "Study") return;
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const userId = sessionData.session?.user?.id || null;
-      const token = sessionData.session?.access_token || "";
+      const studentId = window.TaLockConfig?.studentId ?? "";
 
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/professor-chat?endpoint=socratic-update`,
@@ -598,11 +595,13 @@ export const useProfessorChat = ({
           headers: {
             "Content-Type": "application/json",
             apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            Authorization: `Bearer ${token}`,
-            "x-cohort-id": selectedBatch || "2029",
+            Authorization: `Bearer ${getAuthToken()}`,
+            "x-cohort-id": window.TaLockConfig?.cohortId ?? "",
+            "x-student-id": window.TaLockConfig?.studentId ?? "",
+            "x-tenant-id": window.TaLockConfig?.tenantId ?? "",
           },
           body: JSON.stringify({
-            user_id: userId,
+            user_id: studentId,
             session_id: sessionIdRef.current,
             concept: userMessage.slice(0, 100),
             student_attempt: userMessage,

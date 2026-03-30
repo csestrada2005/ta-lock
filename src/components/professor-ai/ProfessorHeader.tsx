@@ -19,9 +19,9 @@ interface ProfessorHeaderProps {
   onLogout?: () => void;
   onFeedback?: () => void;
   onOpenCourseSelection?: () => void;
-  activeTab: HeaderTab;
-  onTabChange: (tab: HeaderTab) => void;
-  isAdmin: boolean;
+  activeTab?: HeaderTab;
+  onTabChange?: (tab: HeaderTab) => void;
+  isAdmin?: boolean;
 }
 
 const modeOptions: {
@@ -66,9 +66,9 @@ export const ProfessorHeader = ({
   onLogout,
   onFeedback,
   onOpenCourseSelection,
-  activeTab,
+  activeTab = "chat",
   onTabChange,
-  isAdmin,
+  isAdmin = false,
 }: ProfessorHeaderProps) => {
   const { brandName } = useTaLock();
   const selectedCourseDisplay = courses.find(c => c.id === selectedCourse)?.name;
@@ -181,7 +181,7 @@ export const ProfessorHeader = ({
         {visibleTabs.map(tab => (
           <button
             key={tab.id}
-            onClick={() => onTabChange(tab.id)}
+            onClick={() => onTabChange?.(tab.id)}
             className={`px-3 py-1.5 text-xs md:text-sm font-medium rounded-full transition-colors whitespace-nowrap ${
               activeTab === tab.id
                 ? "bg-primary text-primary-foreground"
