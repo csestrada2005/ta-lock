@@ -102,7 +102,7 @@ export const ProfessorHeader = ({
           <Button variant="ghost" size="icon" onClick={onToggleSidebar} className="h-9 w-9 shrink-0">
             <Menu className="h-5 w-5" />
           </Button>
-          <span className="text-base font-bold text-primary shrink-0">AskTETR</span>
+          <span className="text-base font-bold text-primary shrink-0">{brandName}</span>
           <Button
             variant="outline"
             className="flex-1 min-w-0 bg-secondary/50 border-border/50 text-sm h-9 justify-start px-3"
