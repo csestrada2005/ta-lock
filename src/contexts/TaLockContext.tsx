@@ -36,7 +36,6 @@ interface TaLockContextValue {
   courseId: string;
   studentId: string;
   token: string;
-  cohortId: string;
   term: string;
   locale: string;
   brandName: string;
@@ -54,16 +53,12 @@ const TaLockContext = createContext<TaLockContextValue | null>(null);
 
 interface TaLockProviderProps {
   children: ReactNode;
-  tenantId?: string;
-  styleRoot?: HTMLElement | null;
 }
 
-export function TaLockProvider({ children, tenantId, styleRoot }: TaLockProviderProps) {
-  const [lmsConfig, setLmsConfig] = useState<TaLockConfig | null>(
-    typeof window !== "undefined" && window.TaLockConfig ? window.TaLockConfig : null,
-  );
+export function TaLockProvider({ children }: TaLockProviderProps) {
+  const [lmsConfig, setLmsConfig] = useState<TaLockConfig | null>(null);
 
-  const effectiveTenantId = tenantId ?? lmsConfig?.tenantId ?? FALLBACK_TENANT_ID;
+  const effectiveTenantId = lmsConfig?.tenantId ?? FALLBACK_TENANT_ID;
 
   const [apiTheme, setApiTheme] = useState<{ primary: string; secondary: string } | null>(null);
   const [apiLogoUrl, setApiLogoUrl] = useState<string | null>(null);
@@ -91,7 +86,7 @@ export function TaLockProvider({ children, tenantId, styleRoot }: TaLockProvider
   const resolvedBrandName = lmsConfig?.theme?.brandName ?? apiBrandName ?? FALLBACK_BRAND_NAME;
 
   useEffect(() => {
-    const root = styleRoot ?? document.documentElement;
+    const root = document.documentElement;
     const primaryHsl = hexToHsl(resolvedTheme.primary);
     const secondaryHsl = hexToHsl(resolvedTheme.secondary);
 
@@ -110,7 +105,7 @@ export function TaLockProvider({ children, tenantId, styleRoot }: TaLockProvider
     root.style.setProperty("--shadow-soft", `0 4px 20px -4px hsl(${primaryHsl} / 0.2)`);
     root.style.setProperty("--shadow-hover", `0 8px 30px -4px hsl(${primaryHsl} / 0.35)`);
     root.style.setProperty("--shadow-glow", `0 0 40px -10px hsl(${primaryHsl} / 0.4)`);
-  }, [resolvedTheme.primary, resolvedTheme.secondary, styleRoot]);
+  }, [resolvedTheme.primary, resolvedTheme.secondary]);
 
   const isAuthenticated = Boolean(lmsConfig?.token && lmsConfig.token.length > 0);
 
@@ -119,7 +114,7 @@ export function TaLockProvider({ children, tenantId, styleRoot }: TaLockProvider
     courseId: lmsConfig?.courseId ?? "",
     studentId: lmsConfig?.studentId ?? "",
     token: lmsConfig?.token ?? "",
-    cohortId: lmsConfig?.cohortId ?? "",
+
     term: lmsConfig?.term ?? "",
     locale: lmsConfig?.locale ?? "en-US",
     brandName: resolvedBrandName,

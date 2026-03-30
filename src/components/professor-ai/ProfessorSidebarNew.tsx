@@ -96,6 +96,7 @@ export const ProfessorSidebarNew = ({
     if (!studentId) return;
     try {
       // TODO: PRODUCTION — RLS policy must allow reads where user_id = studentId validated via TaLock JWT
+      // TODO: filter conversations by ltiState.studentId once auth token is replaced
       const { data, error } = await supabase
         .from("conversations")
         .select("*")

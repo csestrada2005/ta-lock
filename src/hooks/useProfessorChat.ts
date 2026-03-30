@@ -27,7 +27,6 @@ const BLOOM_LEVEL_PATTERN = /\{"type"\s*:\s*"bloom_level"[^}]*\}/g;
 
 interface UseProfessorChatProps {
   selectedCourse: string | null;
-  selectedBatch: string | null;
   selectedLecture: string | null;
   mode: Mode;
   expertiseLevel: ExpertiseLevel;
@@ -36,7 +35,6 @@ interface UseProfessorChatProps {
 
 export const useProfessorChat = ({
   selectedCourse,
-  selectedBatch,
   selectedLecture,
   mode,
   expertiseLevel,
@@ -238,6 +236,7 @@ export const useProfessorChat = ({
       // Limit history to last 20 messages to keep requests bounded
       const recentMessages = messages.slice(-20);
 
+      // BACKEND TODO: edge function must resolve cohort from courseId internally via a courseId→cohortId mapping table
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/professor-chat`,
         {
@@ -246,7 +245,6 @@ export const useProfessorChat = ({
             "Content-Type": "application/json",
             "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
             "Authorization": `Bearer ${getAuthToken()}`,
-            "x-cohort-id": window.TaLockConfig?.cohortId ?? "",
             "x-student-id": window.TaLockConfig?.studentId ?? "",
             "x-tenant-id": window.TaLockConfig?.tenantId ?? "",
           },
@@ -258,7 +256,6 @@ export const useProfessorChat = ({
             courseDisplayName, // Human-readable course name
             selectedLecture: lectureToSend, // The lecture title or null
             session_id: sessionIdRef.current, // Session ID for backend chat persistence
-            cohort_id: selectedBatch,
             expertise_level: expertiseLevel, // Adaptive learning - user's expertise level
             user_id: studentId,
             studentId,
@@ -384,7 +381,7 @@ export const useProfessorChat = ({
           if (checkForNoMaterialsFallback(cleanedContent)) {
             toast({
               title: "No materials found",
-              description: `Check if you're in the correct cohort (currently: ${selectedBatch}). Try switching between 2028 and 2029.`,
+              description: "No relevant course materials were found for this query.",
               variant: "destructive",
             });
           }
@@ -424,7 +421,7 @@ export const useProfessorChat = ({
         if (checkForNoMaterialsFallback(cleanedContent)) {
           toast({
             title: "No materials found",
-            description: `Check if you're in the correct cohort (currently: ${selectedBatch}). Try switching between 2028 and 2029.`,
+            description: "No relevant course materials were found for this query.",
             variant: "destructive",
           });
         }
@@ -523,14 +520,12 @@ export const useProfessorChat = ({
             "Content-Type": "application/json",
             "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
             "Authorization": `Bearer ${getAuthToken()}`,
-            "x-cohort-id": window.TaLockConfig?.cohortId ?? "",
             "x-student-id": window.TaLockConfig?.studentId ?? "",
             "x-tenant-id": window.TaLockConfig?.tenantId ?? "",
           },
           body: JSON.stringify({
             endpoint: "submit-diagnostic",
             session_id: sessionIdRef.current,
-            cohort_id: selectedBatch,
             diagnostic_results: payload,
             user_id: studentId,
             studentId,
@@ -596,7 +591,6 @@ export const useProfessorChat = ({
             "Content-Type": "application/json",
             apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
             Authorization: `Bearer ${getAuthToken()}`,
-            "x-cohort-id": window.TaLockConfig?.cohortId ?? "",
             "x-student-id": window.TaLockConfig?.studentId ?? "",
             "x-tenant-id": window.TaLockConfig?.tenantId ?? "",
           },

@@ -1,24 +1,38 @@
 import { useState, useEffect } from "react";
-import { Loader2 } from "lucide-react";
-import { ProfessorHeader } from "@/components/professor-ai/ProfessorHeader";
+import { useNavigate } from "react-router-dom";
+import { Menu } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ProfessorSidebarNew } from "@/components/professor-ai/ProfessorSidebarNew";
 import { QuizView } from "@/components/professor-ai/QuizView";
 import { ChatView } from "@/components/professor-ai/ChatView";
 import { FeedbackDialog } from "@/components/FeedbackDialog";
 
 import { useTaLock } from "@/contexts/TaLockContext";
-import { getAuthToken } from "@/lib/auth";
-import type { Mode, Lecture, ExpertiseLevel } from "@/components/professor-ai/types";
+import type { Mode, Lecture } from "@/components/professor-ai/types";
 import { useProfessorChat } from "@/hooks/useProfessorChat";
 import { useProfessorQuiz } from "@/hooks/useProfessorQuiz";
+import type { ExpertiseLevel } from "@/components/professor-ai/types";
+
+const modeOptions: { value: Mode; label: string }[] = [
+  { value: "Study",         label: "Study"    },
+  { value: "Quiz",          label: "Quiz"     },
+  { value: "Notes Creator", label: "Notes"    },
+  { value: "Pre-Read",      label: "Pre-Read" },
+];
 
 const ProfessorAI = () => {
-  const { courseId, cohortId, term, studentId, brandName } = useTaLock();
+  const navigate = useNavigate();
+  const { courseId, studentId, brandName, isAuthenticated } = useTaLock();
+
+  // Guard: must have come through /launch
+  if (!isAuthenticated) {
+    navigate("/unauthorized", { replace: true });
+    return null;
+  }
 
   const [mode, setMode] = useState<Mode>("Study");
   const [selectedLecture, setSelectedLecture] = useState<string | null>(null);
-  const [selectedCourse, setSelectedCourse] = useState<string | null>(courseId || null);
-  const [selectedBatch, setSelectedBatch] = useState<string | null>(cohortId || null);
   const [lectures, setLectures] = useState<Lecture[]>([]);
   const [lecturesLoading, setLecturesLoading] = useState(false);
   const [lecturesError, setLecturesError] = useState(false);
@@ -26,13 +40,10 @@ const ProfessorAI = () => {
   const [expertiseLevel, setExpertiseLevel] = useState<ExpertiseLevel>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
 
-  const filteredLectures = selectedCourse
-    ? lectures.filter((l) => l.class_name === selectedCourse)
-    : [];
+  const filteredLectures = lectures.filter((l) => l.class_name === courseId);
 
   const chat = useProfessorChat({
-    selectedCourse,
-    selectedBatch,
+    selectedCourse: courseId,
     selectedLecture,
     mode,
     expertiseLevel,
@@ -48,17 +59,11 @@ const ProfessorAI = () => {
     isGeneratingDiagnostic,
   } = chat;
 
-  const quiz = useProfessorQuiz(selectedCourse || undefined);
-
-  // Sync from LTI context if it changes after mount
-  useEffect(() => {
-    if (courseId) setSelectedCourse(courseId);
-    if (cohortId) setSelectedBatch(cohortId);
-  }, [courseId, cohortId]);
+  const quiz = useProfessorQuiz(courseId || undefined);
 
   // ── Fetch lectures ──
   useEffect(() => {
-    if (!selectedBatch) return;
+    if (!courseId) return;
 
     const fetchLectures = async () => {
       setLecturesLoading(true);
@@ -66,8 +71,7 @@ const ProfessorAI = () => {
       try {
         const headers: Record<string, string> = {
           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          "x-cohort-id": selectedBatch,
-          authorization: `Bearer ${getAuthToken()}`,
+          authorization: `Bearer ${window.TaLockConfig?.token ?? ""}`,
         };
         const response = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/professor-chat?endpoint=lectures&mode=${encodeURIComponent(mode)}`,
@@ -93,7 +97,7 @@ const ProfessorAI = () => {
     };
 
     fetchLectures();
-  }, [selectedBatch, mode]);
+  }, [courseId, mode]);
 
   // ── Handlers ──
   const sendMessage = async (content: string, isHidden = false) => {
@@ -108,7 +112,7 @@ const ProfessorAI = () => {
   };
 
   const handleCreateNotes = () => {
-    if (selectedCourse && selectedLecture) {
+    if (courseId && selectedLecture) {
       if (mode === "Notes Creator")
         sendMessage(`Summary of lecture ${selectedLecture}`, true);
       else if (mode === "Pre-Read")
@@ -118,9 +122,9 @@ const ProfessorAI = () => {
 
   const handleStartQuiz = () => {};
 
-
   const handleModeChange = (newMode: Mode) => {
     setMode(newMode);
+    setSelectedLecture(null);
     chat.resetChat();
     quiz.resetQuiz();
   };
@@ -137,7 +141,6 @@ const ProfessorAI = () => {
     title: string;
   }) => {
     try {
-      setSelectedCourse(conversation.class_id);
       setMode(conversation.mode as Mode);
       await chat.loadConversation(conversation);
       quiz.resetQuiz();
@@ -147,15 +150,6 @@ const ProfessorAI = () => {
   };
 
   const handleFeedback = () => setFeedbackOpen(true);
-
-  // ── Loading state — wait for LMS config to resolve ──
-  if (!selectedBatch || !selectedCourse) {
-    return (
-      <div className="flex h-screen w-screen items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
 
   const renderContent = () =>
     mode === "Quiz" ? (
@@ -171,7 +165,7 @@ const ProfessorAI = () => {
         isLoading={chat.isLoading || quiz.quizLoading}
         streamingContent={chat.streamingContent}
         selectedLecture={selectedLecture}
-        selectedCourse={selectedCourse}
+        selectedCourse={courseId}
         mode={mode}
         onSendMessage={sendMessage}
         onStartQuiz={handleStartQuiz}
@@ -195,7 +189,7 @@ const ProfessorAI = () => {
         isLoading={chat.isLoading}
         streamingContent={chat.streamingContent}
         selectedLecture={selectedLecture}
-        selectedCourse={selectedCourse}
+        selectedCourse={courseId}
         mode={mode}
         onSendMessage={sendMessage}
         onStartQuiz={handleStartQuiz}
@@ -232,13 +226,58 @@ const ProfessorAI = () => {
       <div
         className={`flex flex-col flex-1 transition-all duration-300 ${sidebarOpen ? "lg:ml-80" : "lg:ml-14"}`}
       >
-        <ProfessorHeader
-          sidebarOpen={sidebarOpen}
-          onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
-          selectedCourse={selectedCourse}
-          selectedMode={mode}
-          onModeChange={handleModeChange}
-        />
+        {/* Inline header — course locked from JWT, no logout */}
+        <div className="bg-background border-b border-border/50 shrink-0">
+          {/* Mobile layout */}
+          <div className="flex lg:hidden items-center gap-2 py-2 px-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="h-9 w-9 shrink-0"
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+            <span className="font-bold text-primary shrink-0">{brandName}</span>
+            {courseId && (
+              <span className="flex-1 min-w-0 text-sm text-muted-foreground truncate px-1">
+                {courseId}
+              </span>
+            )}
+            <Select value={mode} onValueChange={(v) => handleModeChange(v as Mode)}>
+              <SelectTrigger className="w-[110px] bg-secondary/50 border-border/50 text-sm h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-popover border-border">
+                {modeOptions.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Desktop layout */}
+          <div className="hidden lg:flex items-center gap-3 py-2 px-4">
+            <span className="font-bold text-primary shrink-0">{brandName}</span>
+            <div className="flex items-center gap-2 flex-1 justify-center max-w-2xl px-4">
+              {courseId && (
+                <span className="text-sm text-muted-foreground bg-secondary/50 border border-border/50 rounded-md px-3 h-9 flex items-center min-w-0 max-w-[240px] truncate">
+                  {courseId}
+                </span>
+              )}
+              <Select value={mode} onValueChange={(v) => handleModeChange(v as Mode)}>
+                <SelectTrigger className="w-[120px] bg-secondary/50 border-border/50 text-sm h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-popover border-border">
+                  {modeOptions.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
 
         {renderContent()}
 
