@@ -20,6 +20,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
   const navigate = useNavigate();
+  const { logoUrl, brandName } = useTenant();
   
   return (
     <div className="min-h-screen bg-background">
