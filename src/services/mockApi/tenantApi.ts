@@ -4,7 +4,7 @@
  * would be HTTP calls to your config API.
  */
 
-import coursesData from "@/data/courses";
+import { COURSES_BY_BATCH_TERM } from "@/data/courses";
 import personasJson from "@/data/personas.json";
 
 // Re-export the Course type so consumers don't need to import from data/
