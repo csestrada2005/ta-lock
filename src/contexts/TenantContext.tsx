@@ -46,12 +46,20 @@ const DEFAULT_TENANT_ID = "tetr";
 // Default theme used while config is loading
 const FALLBACK_THEME: ThemeColors = { primary: "#800000", secondary: "#F1B82D" };
 
-export function TenantProvider({ children }: { children: ReactNode }) {
+interface TenantProviderProps {
+  children: ReactNode;
+  /** Tenant identifier — defaults to "tetr" */
+  tenantId?: string;
+  /** Optional Shadow DOM root to inject CSS variables into instead of document.documentElement */
+  styleRoot?: HTMLElement | null;
+}
+
+export function TenantProvider({ children, tenantId, styleRoot }: TenantProviderProps) {
   const [config, setConfig] = useState<TenantConfig | null>(null);
 
   useEffect(() => {
-    fetchTenantConfig(DEFAULT_TENANT_ID).then(setConfig);
-  }, []);
+    fetchTenantConfig(tenantId ?? DEFAULT_TENANT_ID).then(setConfig);
+  }, [tenantId]);
 
   // Inject theme CSS variables into :root whenever theme changes
   useEffect(() => {
