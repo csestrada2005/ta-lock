@@ -254,8 +254,8 @@ const Auth = () => {
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
             <img 
-              src="/asktetr-logo.png" 
-              alt="Ask TETR Logo" 
+              src={logoUrl} 
+              alt={brandName} 
               className="h-16 w-auto"
             />
           </div>
