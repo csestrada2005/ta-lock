@@ -64,7 +64,7 @@ export function TenantProvider({ children, tenantId, styleRoot }: TenantProvider
   // Inject theme CSS variables into :root whenever theme changes
   useEffect(() => {
     const theme = config?.theme ?? FALLBACK_THEME;
-    const root = document.documentElement;
+    const root = styleRoot ?? document.documentElement;
 
     const primaryHsl = hexToHsl(theme.primary);
     const secondaryHsl = hexToHsl(theme.secondary);
