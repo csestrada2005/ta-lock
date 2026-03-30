@@ -57,6 +57,7 @@ const ProfessorAI = () => {
     mode,
     expertiseLevel,
     onExpertiseLevelChange: setExpertiseLevel,
+    personas,
   });
 
   const { calibrationRequest, setCalibrationRequest, diagnosticQuiz, setDiagnosticQuiz, submitDiagnostic, isGeneratingDiagnostic } = chat;

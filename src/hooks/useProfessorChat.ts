@@ -42,6 +42,7 @@ export const useProfessorChat = ({
   mode,
   expertiseLevel,
   onExpertiseLevelChange,
+  personas: personasData,
 }: UseProfessorChatProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
