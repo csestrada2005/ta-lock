@@ -129,12 +129,18 @@ export function TaLockProvider({ children }: TaLockProviderProps) {
   }, []);
 
   useEffect(() => {
-    fetchTenantConfig(effectiveTenantId).then((cfg) => {
-      setApiTheme(cfg.theme);
-      setApiLogoUrl(cfg.logoUrl);
-      setApiBrandName(cfg.brandName);
-      setReady(true);
-    });
+    fetchTenantConfig(effectiveTenantId)
+      .then((cfg) => {
+        setApiTheme(cfg.theme);
+        setApiLogoUrl(cfg.logoUrl);
+        setApiBrandName(cfg.brandName);
+        setReady(true);
+      })
+      .catch((err) => {
+        console.error("Failed to fetch tenant config:", err);
+        // Fall through to fallback values (resolvedTheme, resolvedLogoUrl, resolvedBrandName)
+        setReady(true);
+      });
   }, [effectiveTenantId]);
 
   const resolvedTheme = {

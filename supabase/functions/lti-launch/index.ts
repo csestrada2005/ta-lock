@@ -226,6 +226,15 @@ serve(async (req) => {
       });
     }
 
+    const deploymentId = jwtPayload["https://purl.imsglobal.org/spec/lti/claim/deployment_id"] as string | undefined;
+
+    if (!deploymentId) {
+      return new Response(JSON.stringify({ error: "Missing deployment_id claim" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // ── 4. Look up the registered platform ───────────────────────────────────
     const { data: platform, error: platformErr } = await supabase
       .from("lti_platforms")
@@ -376,6 +385,21 @@ serve(async (req) => {
       (platform.tenant_id as string) ??
       "";
 
+    const messageType = jwtPayload["https://purl.imsglobal.org/spec/lti/claim/message_type"] as string | undefined;
+
+    let isDeepLink = false;
+    let deepLinkReturnUrl: string | undefined = undefined;
+
+    if (messageType === "LtiDeepLinkingRequest") {
+      const dlSettings = jwtPayload["https://purl.imsglobal.org/spec/lti/claim/deep_linking_settings"] as { deep_link_return_url?: string } | undefined;
+      isDeepLink = true;
+      deepLinkReturnUrl = dlSettings?.deep_link_return_url;
+    }
+
+    const agsClaim = jwtPayload["https://purl.imsglobal.org/spec/lti-ags/claim/endpoint"] as { lineitem?: string; scope?: string[] } | undefined;
+    const agsLineitem = agsClaim?.lineitem;
+    const agsScopes = agsClaim?.scope;
+
     // ── 10. Mint internal HS256 session JWT ───────────────────────────────────
     const jwtSecret = Deno.env.get("TALOCK_JWT_SECRET") ?? "";
     if (!jwtSecret) {
@@ -398,6 +422,10 @@ serve(async (req) => {
         courseId,
         studentId,
         deploymentId: deploymentId ?? "",
+        isDeepLink,
+        deepLinkReturnUrl,
+        agsLineitem,
+        agsScopes,
         iat,
         exp: sessionExp,
       },
@@ -424,7 +452,8 @@ serve(async (req) => {
 
     // ── 12. Redirect to frontend /launch?lt=<launchToken> ────────────────────
     const frontendUrl = Deno.env.get("FRONTEND_URL") ?? "";
-    const redirectTarget = `${frontendUrl}/launch?lt=${encodeURIComponent(launchToken)}`;
+    const redirectPath = isDeepLink ? "/deep-link" : "/launch";
+    const redirectTarget = `${frontendUrl}${redirectPath}?lt=${encodeURIComponent(launchToken)}`;
 
     return new Response(null, {
       status: 302,
