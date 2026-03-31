@@ -3,11 +3,12 @@
  *
  * Canvas (or any LTI 1.3 platform) POSTs an id_token here after the user
  * completes the OIDC login initiation flow.  This function:
- *   1. Verifies the RS256-signed id_token against the platform's JWKS
- *   2. Validates exp, nbf, aud, and nonce uniqueness
- *   3. Extracts LTI 1.3 claims
- *   4. Mints a short-lived internal HS256 session JWT
- *   5. Sets it as an HttpOnly cookie and redirects to the frontend /launch page
+ *   1. Validates the state parameter (CSRF protection) against lti_nonces
+ *   2. Verifies the RS256-signed id_token against the platform's JWKS
+ *   3. Validates exp, nbf, aud, and nonce uniqueness
+ *   4. Extracts LTI 1.3 claims
+ *   5. Mints a short-lived internal HS256 session JWT
+ *   6. Mints a single-use launch token (5 min TTL) and redirects to /launch?lt=
  */
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -148,10 +149,11 @@ serve(async (req) => {
   );
 
   try {
-    // ── 1. Extract id_token from POST body ──────────────────────────────────
+    // ── 1. Extract id_token and state from POST body ─────────────────────────
     const body = await req.text();
     const params = new URLSearchParams(body);
     const idToken = params.get("id_token");
+    const state = params.get("state");
 
     if (!idToken) {
       return new Response(JSON.stringify({ error: "Missing id_token" }), {
@@ -159,6 +161,37 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // ── 2. Validate state parameter (CSRF protection) ────────────────────────
+    if (!state) {
+      return new Response(
+        JSON.stringify({ error: "Invalid or missing state parameter" }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    const { data: storedState } = await supabase
+      .from("lti_nonces")
+      .select("nonce")
+      .eq("nonce", `state:${state}`)
+      .gt("expires_at", new Date().toISOString())
+      .single();
+
+    if (!storedState) {
+      return new Response(
+        JSON.stringify({ error: "Invalid or missing state parameter" }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    // Consume the state to prevent reuse
+    await supabase.from("lti_nonces").delete().eq("nonce", `state:${state}`);
 
     const parts = idToken.split(".");
     if (parts.length !== 3) {
@@ -170,7 +203,7 @@ serve(async (req) => {
 
     const [headerB64, payloadB64, signatureB64] = parts;
 
-    // ── 2. Decode header and payload ────────────────────────────────────────
+    // ── 3. Decode header and payload ─────────────────────────────────────────
     let jwtHeader: { alg?: string; kid?: string; typ?: string };
     let jwtPayload: Record<string, unknown>;
     try {
@@ -193,23 +226,7 @@ serve(async (req) => {
       });
     }
 
-    // Extract deployment_id before platform lookup — it is required to
-    // disambiguate multiple registrations of the same tool on one LMS.
-    const deploymentId = jwtPayload[
-      "https://purl.imsglobal.org/spec/lti/claim/deployment_id"
-    ] as string | undefined;
-
-    if (!deploymentId) {
-      return new Response(
-        JSON.stringify({ error: "Missing deployment_id claim" }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
-    }
-
-    // ── 3. Look up the registered platform ─────────────────────────────────
+    // ── 4. Look up the registered platform ───────────────────────────────────
     const { data: platform, error: platformErr } = await supabase
       .from("lti_platforms")
       .select("*")
@@ -224,7 +241,7 @@ serve(async (req) => {
       });
     }
 
-    // ── 4. Fetch the platform's JWKS and find the matching key ──────────────
+    // ── 5. Fetch the platform's JWKS and find the matching key ───────────────
     const jwksRes = await fetch(platform.jwks_uri as string);
     if (!jwksRes.ok) {
       return new Response(JSON.stringify({ error: "Failed to fetch JWKS" }), {
@@ -248,7 +265,7 @@ serve(async (req) => {
       });
     }
 
-    // ── 5. Verify the RS256 signature ───────────────────────────────────────
+    // ── 6. Verify the RS256 signature ─────────────────────────────────────────
     let publicKey: CryptoKey;
     try {
       publicKey = await importRsaPublicKey(jwk as JsonWebKey);
@@ -278,7 +295,7 @@ serve(async (req) => {
       );
     }
 
-    // ── 6. Standard JWT claims validation ──────────────────────────────────
+    // ── 7. Standard JWT claims validation ────────────────────────────────────
     const now = Math.floor(Date.now() / 1000);
 
     const exp = jwtPayload.exp as number | undefined;
@@ -312,7 +329,7 @@ serve(async (req) => {
       );
     }
 
-    // ── 7. Nonce uniqueness (anti-replay) ───────────────────────────────────
+    // ── 8. Nonce uniqueness (anti-replay) ─────────────────────────────────────
     const nonce = jwtPayload.nonce as string | undefined;
     if (!nonce) {
       return new Response(JSON.stringify({ error: "Missing nonce claim" }), {
@@ -342,7 +359,7 @@ serve(async (req) => {
     // Consume the nonce to prevent replay
     await supabase.from("lti_nonces").delete().eq("nonce", nonce);
 
-    // ── 8. Extract LTI 1.3 claims ───────────────────────────────────────────
+    // ── 9. Extract LTI 1.3 claims ─────────────────────────────────────────────
     const contextClaim = jwtPayload[
       "https://purl.imsglobal.org/spec/lti/claim/context"
     ] as { id?: string } | undefined;
@@ -359,7 +376,7 @@ serve(async (req) => {
       (platform.tenant_id as string) ??
       "";
 
-    // ── 9. Mint internal HS256 session JWT ──────────────────────────────────
+    // ── 10. Mint internal HS256 session JWT ───────────────────────────────────
     const jwtSecret = Deno.env.get("TALOCK_JWT_SECRET") ?? "";
     if (!jwtSecret) {
       console.error("TALOCK_JWT_SECRET is not set");
@@ -387,25 +404,33 @@ serve(async (req) => {
       jwtSecret,
     );
 
-    // ── 10. Redirect to frontend /launch with HttpOnly cookie ───────────────
-    // The frontend /launch page (LTILaunch.tsx) will call /lti-session to
-    // read non-sensitive claims, populate React context, then navigate to /chat.
+    // ── 11. Mint single-use launch token (5 min TTL) ──────────────────────────
+    // The launch token wraps the session JWT and is exchanged by the frontend
+    // for the session token via POST /lti-session/exchange.  This avoids
+    // HttpOnly cookies which are blocked in iframes by Safari/Chrome ITP.
+    const jti = crypto.randomUUID();
+    const launchTokenExp = now + 300; // 5 minutes
+
+    const launchToken = await signHS256(
+      { sessionJwt, jti, iat, exp: launchTokenExp },
+      jwtSecret,
+    );
+
+    // Store the jti so the exchange endpoint can enforce single-use
+    const launchTokenExpiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+    await supabase
+      .from("lti_nonces")
+      .insert({ nonce: `jti:${jti}`, expires_at: launchTokenExpiresAt });
+
+    // ── 12. Redirect to frontend /launch?lt=<launchToken> ────────────────────
     const frontendUrl = Deno.env.get("FRONTEND_URL") ?? "";
-    const redirectTarget = `${frontendUrl}/launch`;
+    const redirectTarget = `${frontendUrl}/launch?lt=${encodeURIComponent(launchToken)}`;
 
     return new Response(null, {
       status: 302,
       headers: {
         ...corsHeaders,
         Location: redirectTarget,
-        "Set-Cookie": [
-          `talock_session=${sessionJwt}`,
-          "HttpOnly",
-          "Secure",
-          "SameSite=None",
-          "Path=/",
-          "Max-Age=3600",
-        ].join("; "),
       },
     });
   } catch (err) {
