@@ -134,11 +134,3 @@ export function useTaLock(): TaLockContextValue {
   if (!ctx) throw new Error("useTaLock must be used within TaLockProvider");
   return ctx;
 }
-
-/** @deprecated Use `useTaLock()` instead. */
-export function useTenant(): TaLockContextValue {
-  if (import.meta.env.DEV) {
-    console.warn("[TaLock] useTenant() is deprecated — please migrate to useTaLock().");
-  }
-  return useTaLock();
-}
