@@ -47,6 +47,12 @@ serve(async (req) => {
     const iss = params.get("iss");
     const loginHint = params.get("login_hint");
     const targetLinkUri = params.get("target_link_uri");
+    // NOTE: deployment_id is NOT available at OIDC init time — it arrives in
+    // the id_token during the launch step, not in the login_hint parameters.
+    // Canvas does encode deployment context inside lti_message_hint (an opaque
+    // platform-specific blob forwarded verbatim to the auth endpoint).
+    // TODO: parse Canvas-specific lti_message_hint to extract deployment_id for
+    // multi-deployment disambiguation in a future iteration.
     const ltiMessageHint = params.get("lti_message_hint"); // optional
     const clientIdParam = params.get("client_id");         // optional
 

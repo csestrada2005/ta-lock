@@ -15,9 +15,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // ---------------------------------------------------------------------------
 // CORS — Canvas embeds the tool in an iframe so SameSite=None is required;
 // the origin is typically the LMS domain.
+// lti-launch receives form POSTs from the LMS, not credentialed fetches, so
+// wildcard origin is acceptable but we prefer consistency with ALLOWED_ORIGIN.
 // ---------------------------------------------------------------------------
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
   "Access-Control-Allow-Headers": "content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
@@ -191,16 +193,33 @@ serve(async (req) => {
       });
     }
 
+    // Extract deployment_id before platform lookup — it is required to
+    // disambiguate multiple registrations of the same tool on one LMS.
+    const deploymentId = jwtPayload[
+      "https://purl.imsglobal.org/spec/lti/claim/deployment_id"
+    ] as string | undefined;
+
+    if (!deploymentId) {
+      return new Response(
+        JSON.stringify({ error: "Missing deployment_id claim" }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
     // ── 3. Look up the registered platform ─────────────────────────────────
     const { data: platform, error: platformErr } = await supabase
       .from("lti_platforms")
       .select("*")
       .eq("iss", iss)
+      .eq("deployment_id", deploymentId)
       .single();
 
     if (platformErr || !platform) {
-      return new Response(JSON.stringify({ error: "Unknown platform issuer" }), {
-        status: 401,
+      return new Response(JSON.stringify({ error: "Unknown deployment" }), {
+        status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -270,8 +289,8 @@ serve(async (req) => {
       });
     }
 
-    const nbf = jwtPayload.nbf as number | undefined;
-    if (nbf !== undefined && now < nbf) {
+    const nbf = jwtPayload.nbf;
+    if (nbf !== undefined && typeof nbf === "number" && now < nbf) {
       return new Response(JSON.stringify({ error: "JWT not yet valid (nbf)" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -331,10 +350,6 @@ serve(async (req) => {
     const customClaim = jwtPayload[
       "https://purl.imsglobal.org/spec/lti/claim/custom"
     ] as { tenantId?: string; tenant_id?: string } | undefined;
-
-    const deploymentId = jwtPayload[
-      "https://purl.imsglobal.org/spec/lti/claim/deployment_id"
-    ] as string | undefined;
 
     const courseId = contextClaim?.id ?? "";
     const studentId = (jwtPayload.sub as string | undefined) ?? "";
