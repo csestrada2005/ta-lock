@@ -246,9 +246,10 @@ serve(async (req) => {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("lti-ags-submit error:", err);
-    return new Response(JSON.stringify({ error: "AGS submission failed", detail: err.message }), {
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    return new Response(JSON.stringify({ error: "AGS submission failed", detail: msg }), {
       status: 502,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

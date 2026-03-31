@@ -43,16 +43,7 @@ export default function DeepLink() {
 
         sessionStorage.setItem("talock_session", data.sessionToken);
 
-        // Fetch claims from token since exchange response might not have isDeepLink
-        const sessionResponse = await apiFetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/lti-session`);
-        if (!sessionResponse.ok) {
-             navigate("/unauthorized?reason=network_error", { replace: true });
-             return;
-        }
-
-        const sessionData = await sessionResponse.json();
-
-        if (!sessionData.isDeepLink) {
+        if (!data.claims || !data.claims.isDeepLink) {
              navigate("/unauthorized?reason=not_deep_link", { replace: true });
              return;
         }

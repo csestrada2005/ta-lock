@@ -187,6 +187,7 @@ serve(async (req) => {
           courseId: sessionPayload.courseId,
           studentId: sessionPayload.studentId,
           deploymentId: sessionPayload.deploymentId,
+          isDeepLink: sessionPayload.isDeepLink,
         },
       }),
       {

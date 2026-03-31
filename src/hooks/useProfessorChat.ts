@@ -584,7 +584,7 @@ export const useProfessorChat = ({
       // Calculate score value (correct answers / total questions)
       if (diagnosticQuiz?.questions) {
         let correctCount = 0;
-        let totalCount = diagnosticQuiz.questions.length;
+        const totalCount = diagnosticQuiz.questions.length;
 
         for (const [qId, ans] of Object.entries(payload.answers)) {
           const question = diagnosticQuiz.questions.find(q => q.id === qId);
