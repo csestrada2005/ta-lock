@@ -58,7 +58,7 @@ function fixMalformedTables(md: string): string {
         // Check if there's a separator row (index 1 ideally)
         const isSep = (line: string) => /^\|[\s\-:|]+(\|[\s\-:|]+)*\|?\s*$/.test(line.trim());
 
-        let sepIndex = block.findIndex(isSep);
+        const sepIndex = block.findIndex(isSep);
 
         if (sepIndex === -1) {
           // No separator — insert one after the first row

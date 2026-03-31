@@ -5,6 +5,16 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+interface RagDocument {
+  metadata?: { title?: string; class_name?: string };
+  content?: string;
+}
+
+interface AiMessage {
+  role: string;
+  content: string | Array<{ type: string; text?: string; image_url?: { url: string } }>;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -13,11 +23,11 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
-    
+
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
     let courseContext = "";
-    let sources: any[] = [];
+    let sources: RagDocument[] = [];
 
     // Fetch relevant course materials
     if (messages.length > 0) {
@@ -41,8 +51,8 @@ serve(async (req) => {
             if (ragData.documents && ragData.documents.length > 0) {
               sources = ragData.documents;
               courseContext = "\n\nRelevant course materials:\n" +
-                ragData.documents.map((doc: any, idx: number) => 
-                  `[${idx + 1}] ${doc.metadata?.title || 'Document'} (${doc.metadata?.class_name || ''})\n${doc.content}`
+                (ragData.documents as RagDocument[]).map((doc, idx) =>
+                  `[${idx + 1}] ${doc.metadata?.title ?? 'Document'} (${doc.metadata?.class_name ?? ''})\n${doc.content ?? ''}`
                 ).join("\n\n");
             }
           }
@@ -96,7 +106,7 @@ Keep responses SHORT, clear, and conversational. Students prefer quick, actionab
     });
 
     // Build messages array with potential multimodal content
-    const aiMessages: any[] = [{ role: "system", content: systemPrompt }];
+    const aiMessages: AiMessage[] = [{ role: "system", content: systemPrompt }];
     
     for (let i = 0; i < messages.length; i++) {
       const msg = messages[i];

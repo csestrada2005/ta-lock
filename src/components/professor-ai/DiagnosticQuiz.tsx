@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Sparkles, Loader2, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { DiagnosticQuizData, DiagnosticSubmission } from "./types";
+import type { DiagnosticQuestion, DiagnosticQuizData, DiagnosticSubmission } from "./types";
 
 interface DiagnosticQuizProps {
   quiz: DiagnosticQuizData;
@@ -16,19 +16,20 @@ interface Answer {
 }
 
 // Helper to normalize option format
-const getOptionIdAndText = (opt: any, fallbackKey: string): { id: string; text: string } => {
+const getOptionIdAndText = (opt: unknown, fallbackKey: string): { id: string; text: string } => {
   if (typeof opt === 'string') return { id: fallbackKey, text: opt };
   if (typeof opt === 'object' && opt !== null) {
+    const o = opt as Record<string, unknown>;
     return {
-      id: opt.id || opt.key || fallbackKey,
-      text: opt.text || opt.label || opt.value || String(opt),
+      id: (typeof o.id === 'string' ? o.id : typeof o.key === 'string' ? o.key : null) ?? fallbackKey,
+      text: typeof o.text === 'string' ? o.text : typeof o.label === 'string' ? o.label : typeof o.value === 'string' ? o.value : String(opt),
     };
   }
   return { id: fallbackKey, text: String(opt) };
 };
 
 // Helper to get options array from question
-const getOptionsArray = (options: any): Array<{ id: string; text: string }> => {
+const getOptionsArray = (options: DiagnosticQuestion['options']): Array<{ id: string; text: string }> => {
   if (Array.isArray(options)) {
     return options.map((opt, idx) => getOptionIdAndText(opt, String.fromCharCode(65 + idx)));
   }
@@ -63,7 +64,7 @@ export const DiagnosticQuiz = ({ quiz, onSubmit, onClose }: DiagnosticQuizProps)
         topic_slug: quiz.topic_slug,
         answers: answers.map((a, i) => ({
           q_id: a.q_id,
-          selected: a.selected as any,
+          selected: a.selected as "A" | "B" | "C" | "D" | "IDK",
           correct_id: quiz.questions[i].correct_id,
         })),
       });
