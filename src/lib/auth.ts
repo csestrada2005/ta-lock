@@ -1,13 +1,16 @@
 /**
- * Returns the auth token for API requests.
- * Priority: TaLockConfig.token > empty string
- * In development (VITE_DEV_MODE), a missing token logs a warning instead of blocking.
+ * Cookie-based auth helpers.
+ *
+ * The talock_session JWT lives in an HttpOnly cookie — JavaScript cannot read
+ * it.  All API calls must use apiFetch() so the browser includes the cookie
+ * automatically via credentials: "include".
  */
-export function getAuthToken(): string {
-  return window.TaLockConfig?.token ?? "";
-}
+export const AUTH_MODE = "cookie" as const;
 
-export function hasValidToken(): boolean {
-  const token = getAuthToken();
-  return token.length > 0;
+/**
+ * Wrapper around fetch() that always sends credentials (cookies).
+ * Use this for every call to Supabase Edge Functions.
+ */
+export function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  return fetch(url, { ...options, credentials: "include" });
 }

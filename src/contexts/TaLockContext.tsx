@@ -35,7 +35,6 @@ interface TaLockContextValue {
   tenantId: string;
   courseId: string;
   studentId: string;
-  token: string;
   term: string;
   locale: string;
   brandName: string;
@@ -43,9 +42,9 @@ interface TaLockContextValue {
   theme: { primary: string; secondary: string };
   ready: boolean;
   lmsConfig: TaLockConfig | null;
-  /** Whether a valid LTI session is active */
+  /** True once LTILaunch has successfully validated the session cookie */
   isAuthenticated: boolean;
-  /** Called by LTILaunch to inject decoded JWT claims */
+  /** Called by LTILaunch after a successful lti-session fetch */
   setLtiState: (config: TaLockConfig) => void;
 }
 
@@ -107,14 +106,13 @@ export function TaLockProvider({ children }: TaLockProviderProps) {
     root.style.setProperty("--shadow-glow", `0 0 40px -10px hsl(${primaryHsl} / 0.4)`);
   }, [resolvedTheme.primary, resolvedTheme.secondary]);
 
-  const isAuthenticated = Boolean(lmsConfig?.token && lmsConfig.token.length > 0);
+  // Authenticated as soon as setLtiState has been called with valid claims
+  const isAuthenticated = lmsConfig !== null;
 
   const value: TaLockContextValue = {
     tenantId: effectiveTenantId,
     courseId: lmsConfig?.courseId ?? "",
     studentId: lmsConfig?.studentId ?? "",
-    token: lmsConfig?.token ?? "",
-
     term: lmsConfig?.term ?? "",
     locale: lmsConfig?.locale ?? "en-US",
     brandName: resolvedBrandName,

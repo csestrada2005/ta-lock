@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const PROFESSOR_API_URL = "https://professor-agent-platform.onrender.com";
 
@@ -9,7 +8,62 @@ const allowedOrigin = Deno.env.get("ALLOWED_ORIGIN") || "*";
 const corsHeaders = {
   "Access-Control-Allow-Origin": allowedOrigin,
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cohort-id",
+  "Access-Control-Allow-Credentials": "true",
 };
+
+// ---------------------------------------------------------------------------
+// Cookie-based JWT validation (HS256, Web Crypto)
+// ---------------------------------------------------------------------------
+
+function base64urlToBytes(str: string): Uint8Array {
+  const base64 = str.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+  const binary = atob(padded);
+  return Uint8Array.from(binary, (c) => c.charCodeAt(0));
+}
+
+async function verifySessionCookie(
+  cookieHeader: string,
+  secret: string,
+): Promise<Record<string, unknown> | null> {
+  const match = cookieHeader.match(/(?:^|;\s*)talock_session=([^;]+)/);
+  const token = match?.[1];
+  if (!token) return null;
+
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+  const [headerB64, payloadB64, signatureB64] = parts;
+
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["verify"],
+  );
+
+  const valid = await crypto.subtle.verify(
+    "HMAC",
+    key,
+    base64urlToBytes(signatureB64),
+    encoder.encode(`${headerB64}.${payloadB64}`),
+  );
+  if (!valid) return null;
+
+  try {
+    const payload = JSON.parse(
+      new TextDecoder().decode(base64urlToBytes(payloadB64)),
+    ) as Record<string, unknown>;
+
+    const now = Math.floor(Date.now() / 1000);
+    if (typeof payload.exp === "number" && now > payload.exp) return null;
+
+    return payload;
+  } catch {
+    return null;
+  }
+}
 
 serve(async (req) => {
   // Handle CORS preflight
@@ -23,23 +77,12 @@ serve(async (req) => {
       throw new Error("API key not configured");
     }
 
-    // Verify caller is an authenticated Supabase user
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
-    if (authError || !user) {
+    // Verify caller via talock_session HttpOnly cookie (LTI users are not
+    // Supabase auth users, so supabaseClient.auth.getUser() cannot be used)
+    const jwtSecret = Deno.env.get("TALOCK_JWT_SECRET") ?? "";
+    const cookieHeader = req.headers.get("cookie") ?? "";
+    const sessionPayload = await verifySessionCookie(cookieHeader, jwtSecret);
+    if (!sessionPayload) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
