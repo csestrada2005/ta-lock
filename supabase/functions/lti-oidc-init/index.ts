@@ -90,10 +90,13 @@ serve(async (req) => {
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
     const { error: insertErr } = await supabase
       .from("lti_nonces")
-      .insert({ nonce, expires_at: expiresAt });
+      .insert([
+        { nonce, expires_at: expiresAt },
+        { nonce: `state:${state}`, expires_at: expiresAt }
+      ]);
 
     if (insertErr) {
-      console.error("Failed to store nonce:", insertErr);
+      console.error("Failed to store nonce/state:", insertErr);
       return new Response(JSON.stringify({ error: "Internal server error" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
