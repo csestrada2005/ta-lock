@@ -28,6 +28,12 @@ const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
  * the values returned here.
  */
 export async function fetchTenantConfig(_tenantId: string): Promise<TenantConfig> {
+  if (import.meta.env.PROD) {
+    throw new Error(
+      "mockApi must not be used in production — replace with real tenant API call",
+    );
+  }
+
   await delay(SIMULATED_DELAY);
 
   return {

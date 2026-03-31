@@ -1,9 +1,8 @@
-/** Global configuration injected by the host LMS before the widget loads. */
+/** Non-sensitive LTI session claims exposed to the frontend after cookie validation. */
 interface TaLockConfig {
   tenantId: string;
   courseId: string;
   studentId: string;
-  token: string;          // Short-lived JWT signed by TaLock secret
   term?: string;          // Optional: academic term identifier
   locale?: string;        // Optional: BCP-47 locale string e.g. "en-US"
   theme?: {

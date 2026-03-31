@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { Menu } from "lucide-react";
+import { apiFetch } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ProfessorSidebarNew } from "@/components/professor-ai/ProfessorSidebarNew";
@@ -22,14 +22,7 @@ const modeOptions: { value: Mode; label: string }[] = [
 ];
 
 const ProfessorAI = () => {
-  const navigate = useNavigate();
-  const { courseId, studentId, brandName, isAuthenticated } = useTaLock();
-
-  // Guard: must have come through /launch
-  if (!isAuthenticated) {
-    navigate("/unauthorized", { replace: true });
-    return null;
-  }
+  const { courseId, studentId, brandName } = useTaLock();
 
   const [mode, setMode] = useState<Mode>("Study");
   const [selectedLecture, setSelectedLecture] = useState<string | null>(null);
@@ -69,13 +62,13 @@ const ProfessorAI = () => {
       setLecturesLoading(true);
       setLecturesError(false);
       try {
-        const headers: Record<string, string> = {
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          authorization: `Bearer ${window.TaLockConfig?.token ?? ""}`,
-        };
-        const response = await fetch(
+        const response = await apiFetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/professor-chat?endpoint=lectures&mode=${encodeURIComponent(mode)}`,
-          { headers },
+          {
+            headers: {
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            },
+          },
         );
 
         if (response.ok) {

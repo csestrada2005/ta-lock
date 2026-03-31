@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { getAuthToken } from "@/lib/auth";
+import { apiFetch } from "@/lib/auth";
 import { toast } from "@/hooks/use-toast";
 import type { Mode, Message, ExpertiseLevel, DiagnosticQuizData, DiagnosticSubmission, SystemEvent, SocraticState } from "@/components/professor-ai/types";
 
@@ -237,14 +237,13 @@ export const useProfessorChat = ({
       const recentMessages = messages.slice(-20);
 
       // BACKEND TODO: edge function must resolve cohort from courseId internally via a courseId→cohortId mapping table
-      const response = await fetch(
+      const response = await apiFetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/professor-chat`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            "Authorization": `Bearer ${getAuthToken()}`,
             "x-student-id": window.TaLockConfig?.studentId ?? "",
             "x-tenant-id": window.TaLockConfig?.tenantId ?? "",
           },
@@ -512,14 +511,13 @@ export const useProfessorChat = ({
     try {
       const studentId = window.TaLockConfig?.studentId ?? "";
 
-      const response = await fetch(
+      const response = await apiFetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/professor-chat`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            "Authorization": `Bearer ${getAuthToken()}`,
             "x-student-id": window.TaLockConfig?.studentId ?? "",
             "x-tenant-id": window.TaLockConfig?.tenantId ?? "",
           },
@@ -583,14 +581,13 @@ export const useProfessorChat = ({
     try {
       const studentId = window.TaLockConfig?.studentId ?? "";
 
-      const response = await fetch(
+      const response = await apiFetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/professor-chat?endpoint=socratic-update`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            Authorization: `Bearer ${getAuthToken()}`,
             "x-student-id": window.TaLockConfig?.studentId ?? "",
             "x-tenant-id": window.TaLockConfig?.tenantId ?? "",
           },
