@@ -1,9 +1,15 @@
 /**
- * lti-session — session validator called by the frontend after LTI launch
+ * lti-session — session validator and launch-token exchange endpoint
  *
- * The browser sends the talock_session HttpOnly cookie automatically.
- * This function verifies the HS256 JWT and returns the non-sensitive claims
- * that the frontend React context needs.  The raw JWT is never exposed.
+ * POST /lti-session/exchange
+ *   Exchanges a single-use launch token (minted by lti-launch) for a session
+ *   token.  The frontend calls this once on /launch, stores the returned
+ *   sessionToken in sessionStorage, then uses it as a Bearer token on all
+ *   subsequent requests.
+ *
+ * GET /lti-session
+ *   Re-hydrates claims from the session token sent in the Authorization: Bearer
+ *   header.  Called on provider mount to restore state after a page refresh.
  */
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -77,118 +83,120 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const secret = Deno.env.get("TALOCK_JWT_SECRET") ?? "";
   const url = new URL(req.url);
 
-  // ── POST /exchange ───────────────────────────────────────────────────────
+  // ── POST /lti-session/exchange ────────────────────────────────────────────
   if (req.method === "POST" && url.pathname.endsWith("/exchange")) {
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
 
+    let launchToken: string | undefined;
     try {
-      const body = await req.json();
-      const launchToken = body.launchToken;
-
-      if (!launchToken) {
-        return new Response(JSON.stringify({ error: "Missing launchToken" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const secret = Deno.env.get("TALOCK_JWT_SECRET") ?? "";
-      const launchPayload = await verifyHS256(launchToken, secret);
-
-      if (!launchPayload) {
-        return new Response(JSON.stringify({ error: "Invalid launch token" }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const now = Math.floor(Date.now() / 1000);
-      if (typeof launchPayload.exp === "number" && now > launchPayload.exp) {
-        return new Response(JSON.stringify({ error: "Launch token expired" }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const jti = launchPayload.jti as string | undefined;
-      if (!jti) {
-        return new Response(JSON.stringify({ error: "Invalid launch token payload" }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      // Check jti uniqueness (single use)
-      const { data: storedNonce } = await supabase
-        .from("lti_nonces")
-        .select("nonce")
-        .eq("nonce", jti)
-        .gt("expires_at", new Date().toISOString())
-        .single();
-
-      if (!storedNonce) {
-        return new Response(JSON.stringify({ error: "Token already used" }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      // Consume the jti
-      await supabase.from("lti_nonces").delete().eq("nonce", jti);
-
-      // Verify the inner sessionJwt
-      const sessionJwt = launchPayload.sessionJwt as string | undefined;
-      if (!sessionJwt) {
-        return new Response(JSON.stringify({ error: "Missing sessionJwt" }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const sessionPayload = await verifyHS256(sessionJwt, secret);
-      if (!sessionPayload) {
-        return new Response(JSON.stringify({ error: "Invalid session token" }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (typeof sessionPayload.exp === "number" && now > sessionPayload.exp) {
-        return new Response(JSON.stringify({ error: "Session token expired" }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      return new Response(
-        JSON.stringify({
-          sessionToken: sessionJwt,
-          claims: {
-            tenantId: sessionPayload.tenantId,
-            courseId: sessionPayload.courseId,
-            studentId: sessionPayload.studentId,
-            deploymentId: sessionPayload.deploymentId,
-          },
-        }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
-    } catch (err) {
-      console.error("/exchange error:", err);
-      return new Response(JSON.stringify({ error: "Internal server error" }), {
-        status: 500,
+      const body = await req.json() as Record<string, unknown>;
+      launchToken = body.launchToken as string | undefined;
+    } catch {
+      return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
+        status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    if (!launchToken) {
+      return new Response(JSON.stringify({ error: "Missing launchToken" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Verify launch token signature
+    const ltPayload = await verifyHS256(launchToken, secret);
+    if (!ltPayload) {
+      return new Response(JSON.stringify({ error: "Invalid launch token" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Check launch token expiry
+    const now = Math.floor(Date.now() / 1000);
+    if (typeof ltPayload.exp === "number" && now > ltPayload.exp) {
+      return new Response(JSON.stringify({ error: "token_expired" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Enforce single-use via jti stored in lti_nonces
+    const jti = ltPayload.jti as string | undefined;
+    if (!jti) {
+      return new Response(JSON.stringify({ error: "Invalid launch token" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { data: storedJti } = await supabase
+      .from("lti_nonces")
+      .select("nonce")
+      .eq("nonce", `jti:${jti}`)
+      .gt("expires_at", new Date().toISOString())
+      .single();
+
+    if (!storedJti) {
+      return new Response(JSON.stringify({ error: "Token already used" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Consume the jti
+    await supabase.from("lti_nonces").delete().eq("nonce", `jti:${jti}`);
+
+    // Verify the inner session JWT
+    const sessionJwt = ltPayload.sessionJwt as string | undefined;
+    if (!sessionJwt) {
+      return new Response(JSON.stringify({ error: "Invalid launch token" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const sessionPayload = await verifyHS256(sessionJwt, secret);
+    if (!sessionPayload) {
+      return new Response(JSON.stringify({ error: "Invalid session token" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (typeof sessionPayload.exp === "number" && now > sessionPayload.exp) {
+      return new Response(JSON.stringify({ error: "token_expired" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    return new Response(
+      JSON.stringify({
+        sessionToken: sessionJwt,
+        claims: {
+          tenantId: sessionPayload.tenantId,
+          courseId: sessionPayload.courseId,
+          studentId: sessionPayload.studentId,
+          deploymentId: sessionPayload.deploymentId,
+        },
+      }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   }
 
-  // ── GET (validate active session token) ──────────────────────────────────
+  // ── GET /lti-session ──────────────────────────────────────────────────────
   if (req.method !== "GET") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), {
       status: 405,
@@ -196,7 +204,7 @@ serve(async (req) => {
     });
   }
 
-  // Extract session token from Authorization: Bearer header
+  // ── 1. Extract session token from Authorization: Bearer header ────────────
   const authHeader = req.headers.get("authorization") ?? "";
   const match = authHeader.match(/^Bearer\s+(.+)$/i);
   const sessionToken = match?.[1];
@@ -208,7 +216,7 @@ serve(async (req) => {
     });
   }
 
-  const secret = Deno.env.get("TALOCK_JWT_SECRET") ?? "";
+  // ── 2. Verify the JWT ─────────────────────────────────────────────────────
   const payload = await verifyHS256(sessionToken, secret);
 
   if (!payload) {
@@ -218,6 +226,7 @@ serve(async (req) => {
     });
   }
 
+  // ── 3. Check expiry ───────────────────────────────────────────────────────
   const now = Math.floor(Date.now() / 1000);
   if (typeof payload.exp === "number" && now > payload.exp) {
     return new Response(JSON.stringify({ error: "No valid session" }), {
@@ -226,6 +235,7 @@ serve(async (req) => {
     });
   }
 
+  // ── 4. Return non-sensitive claims only — never the raw JWT ───────────────
   return new Response(
     JSON.stringify({
       tenantId: payload.tenantId,

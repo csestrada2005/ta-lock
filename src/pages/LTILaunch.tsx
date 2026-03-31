@@ -6,21 +6,21 @@ import { useTaLock } from "@/contexts/TaLockContext";
 /**
  * LTI 1.3 launch entry point.
  *
- * After lti-launch generates a short-lived launch token and redirects here
- * with the `lt` query parameter, this component POSTs it to /lti-session/exchange
- * to exchange it for a session token, populates the React context, then navigates
- * to /chat.
+ * lti-launch redirects here with a short-lived launch token in the `lt` query
+ * parameter.  This component exchanges that token for a session token via
+ * POST /lti-session/exchange, stores the session token in sessionStorage, then
+ * navigates to /chat.  The `lt` param is immediately cleared from the URL so
+ * it cannot be bookmarked or leaked via the Referer header.
  */
 const LTILaunch = () => {
   const navigate = useNavigate();
   const { setLtiState } = useTaLock();
 
   useEffect(() => {
-    const exchangeToken = async () => {
-      const params = new URLSearchParams(window.location.search);
-      const launchToken = params.get("lt");
+    const exchange = async () => {
+      const lt = new URLSearchParams(window.location.search).get("lt");
 
-      if (!launchToken) {
+      if (!lt) {
         navigate("/unauthorized?reason=missing_token", { replace: true });
         return;
       }
@@ -30,18 +30,20 @@ const LTILaunch = () => {
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/lti-session/exchange`,
           {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ launchToken }),
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ launchToken: lt }),
           },
         );
 
         if (!response.ok) {
-          const errData = await response.json().catch(() => null);
-          const reason = errData?.error === "Token already used" ? "token_used" :
-                         errData?.error === "Launch token expired" ? "token_expired" :
-                         "invalid_token";
+          let reason = "network_error";
+          try {
+            const err = (await response.json()) as { error?: string };
+            if (err.error === "token_expired") reason = "token_expired";
+            else if (err.error === "Token already used") reason = "token_used";
+          } catch {
+            // ignore parse errors
+          }
           navigate(`/unauthorized?reason=${reason}`, { replace: true });
           return;
         }
@@ -56,10 +58,10 @@ const LTILaunch = () => {
           };
         };
 
-        // Store session token
+        // Persist the session token for subsequent API calls
         sessionStorage.setItem("talock_session", data.sessionToken);
 
-        // Clear 'lt' param from URL
+        // Remove the launch token from the URL immediately
         window.history.replaceState({}, "", "/launch");
 
         const config: TaLockConfig = {
@@ -78,7 +80,7 @@ const LTILaunch = () => {
       }
     };
 
-    exchangeToken();
+    exchange();
   }, [navigate, setLtiState]);
 
   return (

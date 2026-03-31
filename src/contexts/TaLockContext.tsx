@@ -42,10 +42,11 @@ interface TaLockContextValue {
   theme: { primary: string; secondary: string };
   ready: boolean;
   lmsConfig: TaLockConfig | null;
+  /** Tri-state auth status: loading while checking sessionStorage on mount */
   authStatus: "loading" | "authenticated" | "unauthenticated";
-  /** True once LTILaunch has successfully validated the session token */
+  /** True once the session has been validated */
   isAuthenticated: boolean;
-  /** Called by LTILaunch after a successful lti-session fetch */
+  /** Called by LTILaunch after a successful /exchange */
   setLtiState: (config: TaLockConfig) => void;
 }
 
@@ -71,60 +72,60 @@ export function TaLockProvider({ children }: TaLockProviderProps) {
     setAuthStatus("authenticated");
   }, []);
 
+  // On mount: check sessionStorage for an existing session token and re-hydrate
   useEffect(() => {
-    // Check session on mount
-    const checkSession = async () => {
-      const token = sessionStorage.getItem("talock_session");
-      if (!token) {
+    const token = sessionStorage.getItem("talock_session");
+
+    if (!token) {
+      setAuthStatus("unauthenticated");
+      return;
+    }
+
+    // Decode JWT payload client-side (no signature verification — just check exp)
+    try {
+      const parts = token.split(".");
+      if (parts.length !== 3) throw new Error("malformed");
+      const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+      const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+      const payload = JSON.parse(atob(padded)) as Record<string, unknown>;
+      const now = Math.floor(Date.now() / 1000);
+      if (typeof payload.exp === "number" && now > payload.exp) {
+        sessionStorage.removeItem("talock_session");
         setAuthStatus("unauthenticated");
         return;
       }
+    } catch {
+      sessionStorage.removeItem("talock_session");
+      setAuthStatus("unauthenticated");
+      return;
+    }
 
-      try {
-        // Decode payload to check exp client-side (rough check)
-        const payloadB64 = token.split(".")[1];
-        if (payloadB64) {
-          const payloadStr = atob(payloadB64.replace(/-/g, "+").replace(/_/g, "/"));
-          const payload = JSON.parse(payloadStr);
-          if (payload.exp && Date.now() / 1000 > payload.exp) {
-            sessionStorage.removeItem("talock_session");
-            setAuthStatus("unauthenticated");
-            return;
-          }
-        }
-
-        // Validate via API and hydrate claims
-        const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/lti-session`, {
-          headers: {
-            "Authorization": `Bearer ${token}`
-          }
-        });
-
+    // Re-hydrate claims from the server to populate context
+    fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/lti-session`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(async (res) => {
         if (!res.ok) {
           sessionStorage.removeItem("talock_session");
           setAuthStatus("unauthenticated");
           return;
         }
-
-        const data = await res.json();
-
-        const config: TaLockConfig = {
+        const data = (await res.json()) as {
+          tenantId: string;
+          courseId: string;
+          studentId: string;
+          deploymentId?: string;
+        };
+        setLmsConfig({
           tenantId: data.tenantId ?? "",
           courseId: data.courseId ?? "",
           studentId: data.studentId ?? "",
-        };
-
-        window.TaLockConfig = config;
-        setLmsConfig(config);
+        });
         setAuthStatus("authenticated");
-
-      } catch (err) {
-        console.error("Session rehydration failed", err);
+      })
+      .catch(() => {
         setAuthStatus("unauthenticated");
-      }
-    };
-
-    checkSession();
+      });
   }, []);
 
   useEffect(() => {

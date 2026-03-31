@@ -6,16 +6,16 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { TaLockProvider } from "@/contexts/TaLockContext";
 import { useTaLock } from "@/contexts/TaLockContext";
+import { Loader2 } from "lucide-react";
 import LTILaunch from "@/pages/LTILaunch";
 import ProfessorAI from "@/pages/ProfessorAI";
 import Unauthorized from "@/pages/Unauthorized";
 
 const queryClient = new QueryClient();
 
-/** Guard: only render children if an LTI session is active */
+/** Guard: handles loading / authenticated / unauthenticated tri-state */
 const RequireLTI = ({ children }: { children: React.ReactNode }) => {
   const { authStatus } = useTaLock();
-
   if (authStatus === "loading") {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background">
@@ -23,11 +23,7 @@ const RequireLTI = ({ children }: { children: React.ReactNode }) => {
       </div>
     );
   }
-
-  if (authStatus === "unauthenticated") {
-    return <Navigate to="/unauthorized" replace />;
-  }
-
+  if (authStatus === "unauthenticated") return <Navigate to="/unauthorized" replace />;
   return <>{children}</>;
 };
 

@@ -3,11 +3,12 @@
  *
  * Canvas (or any LTI 1.3 platform) POSTs an id_token here after the user
  * completes the OIDC login initiation flow.  This function:
- *   1. Verifies the RS256-signed id_token against the platform's JWKS
- *   2. Validates exp, nbf, aud, and nonce uniqueness
- *   3. Extracts LTI 1.3 claims
- *   4. Mints a short-lived internal HS256 session JWT
- *   5. Sets it as an HttpOnly cookie and redirects to the frontend /launch page
+ *   1. Validates the state parameter (CSRF protection) against lti_nonces
+ *   2. Verifies the RS256-signed id_token against the platform's JWKS
+ *   3. Validates exp, nbf, aud, and nonce uniqueness
+ *   4. Extracts LTI 1.3 claims
+ *   5. Mints a short-lived internal HS256 session JWT
+ *   6. Mints a single-use launch token (5 min TTL) and redirects to /launch?lt=
  */
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -15,9 +16,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // ---------------------------------------------------------------------------
 // CORS — Canvas embeds the tool in an iframe so SameSite=None is required;
 // the origin is typically the LMS domain.
+// lti-launch receives form POSTs from the LMS, not credentialed fetches, so
+// wildcard origin is acceptable but we prefer consistency with ALLOWED_ORIGIN.
 // ---------------------------------------------------------------------------
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
   "Access-Control-Allow-Headers": "content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
@@ -146,7 +149,7 @@ serve(async (req) => {
   );
 
   try {
-    // ── 1. Extract id_token and state from POST body ────────────────────────
+    // ── 1. Extract id_token and state from POST body ─────────────────────────
     const body = await req.text();
     const params = new URLSearchParams(body);
     const idToken = params.get("id_token");
@@ -159,14 +162,17 @@ serve(async (req) => {
       });
     }
 
+    // ── 2. Validate state parameter (CSRF protection) ────────────────────────
     if (!state) {
-      return new Response(JSON.stringify({ error: "Invalid or missing state parameter" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: "Invalid or missing state parameter" }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
-    // ── 1b. Validate state parameter (CSRF protection) ──────────────────────
     const { data: storedState } = await supabase
       .from("lti_nonces")
       .select("nonce")
@@ -175,10 +181,13 @@ serve(async (req) => {
       .single();
 
     if (!storedState) {
-      return new Response(JSON.stringify({ error: "Invalid or missing state parameter" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: "Invalid or missing state parameter" }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     // Consume the state to prevent reuse
@@ -194,7 +203,7 @@ serve(async (req) => {
 
     const [headerB64, payloadB64, signatureB64] = parts;
 
-    // ── 2. Decode header and payload ────────────────────────────────────────
+    // ── 3. Decode header and payload ─────────────────────────────────────────
     let jwtHeader: { alg?: string; kid?: string; typ?: string };
     let jwtPayload: Record<string, unknown>;
     try {
@@ -217,21 +226,22 @@ serve(async (req) => {
       });
     }
 
-    // ── 3. Look up the registered platform ─────────────────────────────────
+    // ── 4. Look up the registered platform ───────────────────────────────────
     const { data: platform, error: platformErr } = await supabase
       .from("lti_platforms")
       .select("*")
       .eq("iss", iss)
+      .eq("deployment_id", deploymentId)
       .single();
 
     if (platformErr || !platform) {
-      return new Response(JSON.stringify({ error: "Unknown platform issuer" }), {
-        status: 401,
+      return new Response(JSON.stringify({ error: "Unknown deployment" }), {
+        status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // ── 4. Fetch the platform's JWKS and find the matching key ──────────────
+    // ── 5. Fetch the platform's JWKS and find the matching key ───────────────
     const jwksRes = await fetch(platform.jwks_uri as string);
     if (!jwksRes.ok) {
       return new Response(JSON.stringify({ error: "Failed to fetch JWKS" }), {
@@ -255,7 +265,7 @@ serve(async (req) => {
       });
     }
 
-    // ── 5. Verify the RS256 signature ───────────────────────────────────────
+    // ── 6. Verify the RS256 signature ─────────────────────────────────────────
     let publicKey: CryptoKey;
     try {
       publicKey = await importRsaPublicKey(jwk as JsonWebKey);
@@ -285,7 +295,7 @@ serve(async (req) => {
       );
     }
 
-    // ── 6. Standard JWT claims validation ──────────────────────────────────
+    // ── 7. Standard JWT claims validation ────────────────────────────────────
     const now = Math.floor(Date.now() / 1000);
 
     const exp = jwtPayload.exp as number | undefined;
@@ -296,8 +306,8 @@ serve(async (req) => {
       });
     }
 
-    const nbf = jwtPayload.nbf as number | undefined;
-    if (nbf !== undefined && now < nbf) {
+    const nbf = jwtPayload.nbf;
+    if (nbf !== undefined && typeof nbf === "number" && now < nbf) {
       return new Response(JSON.stringify({ error: "JWT not yet valid (nbf)" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -319,7 +329,7 @@ serve(async (req) => {
       );
     }
 
-    // ── 7. Nonce uniqueness (anti-replay) ───────────────────────────────────
+    // ── 8. Nonce uniqueness (anti-replay) ─────────────────────────────────────
     const nonce = jwtPayload.nonce as string | undefined;
     if (!nonce) {
       return new Response(JSON.stringify({ error: "Missing nonce claim" }), {
@@ -349,7 +359,7 @@ serve(async (req) => {
     // Consume the nonce to prevent replay
     await supabase.from("lti_nonces").delete().eq("nonce", nonce);
 
-    // ── 8. Extract LTI 1.3 claims ───────────────────────────────────────────
+    // ── 9. Extract LTI 1.3 claims ─────────────────────────────────────────────
     const contextClaim = jwtPayload[
       "https://purl.imsglobal.org/spec/lti/claim/context"
     ] as { id?: string } | undefined;
@@ -357,10 +367,6 @@ serve(async (req) => {
     const customClaim = jwtPayload[
       "https://purl.imsglobal.org/spec/lti/claim/custom"
     ] as { tenantId?: string; tenant_id?: string } | undefined;
-
-    const deploymentId = jwtPayload[
-      "https://purl.imsglobal.org/spec/lti/claim/deployment_id"
-    ] as string | undefined;
 
     const courseId = contextClaim?.id ?? "";
     const studentId = (jwtPayload.sub as string | undefined) ?? "";
@@ -370,7 +376,7 @@ serve(async (req) => {
       (platform.tenant_id as string) ??
       "";
 
-    // ── 9. Mint internal HS256 session JWT ──────────────────────────────────
+    // ── 10. Mint internal HS256 session JWT ───────────────────────────────────
     const jwtSecret = Deno.env.get("TALOCK_JWT_SECRET") ?? "";
     if (!jwtSecret) {
       console.error("TALOCK_JWT_SECRET is not set");
@@ -398,39 +404,27 @@ serve(async (req) => {
       jwtSecret,
     );
 
-    // ── 10. Generate short-lived launch token ───────────────────────────────
-    const launchJti = crypto.randomUUID();
-    const launchExp = now + 300; // 5 minutes
+    // ── 11. Mint single-use launch token (5 min TTL) ──────────────────────────
+    // The launch token wraps the session JWT and is exchanged by the frontend
+    // for the session token via POST /lti-session/exchange.  This avoids
+    // HttpOnly cookies which are blocked in iframes by Safari/Chrome ITP.
+    const jti = crypto.randomUUID();
+    const launchTokenExp = now + 300; // 5 minutes
 
     const launchToken = await signHS256(
-      {
-        sessionJwt,
-        jti: launchJti,
-        iat,
-        exp: launchExp,
-      },
+      { sessionJwt, jti, iat, exp: launchTokenExp },
       jwtSecret,
     );
 
-    // Store jti to enforce single use
-    const { error: insertErr } = await supabase
+    // Store the jti so the exchange endpoint can enforce single-use
+    const launchTokenExpiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+    await supabase
       .from("lti_nonces")
-      .insert({
-        nonce: launchJti,
-        expires_at: new Date(launchExp * 1000).toISOString(),
-      });
+      .insert({ nonce: `jti:${jti}`, expires_at: launchTokenExpiresAt });
 
-    if (insertErr) {
-      console.error("Failed to store launch token jti:", insertErr);
-      return new Response(JSON.stringify({ error: "Internal server error" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // ── 11. Redirect to frontend /launch with short-lived URL token ─────────
+    // ── 12. Redirect to frontend /launch?lt=<launchToken> ────────────────────
     const frontendUrl = Deno.env.get("FRONTEND_URL") ?? "";
-    const redirectTarget = `${frontendUrl}/launch?lt=${launchToken}`;
+    const redirectTarget = `${frontendUrl}/launch?lt=${encodeURIComponent(launchToken)}`;
 
     return new Response(null, {
       status: 302,

@@ -12,7 +12,7 @@ const corsHeaders = {
 };
 
 // ---------------------------------------------------------------------------
-// Header-based JWT validation (HS256, Web Crypto)
+// Bearer-token JWT validation (HS256, Web Crypto)
 // ---------------------------------------------------------------------------
 
 function base64urlToBytes(str: string): Uint8Array {
@@ -77,7 +77,7 @@ serve(async (req) => {
       throw new Error("API key not configured");
     }
 
-    // Verify caller via Authorization: Bearer token (LTI users are not
+    // Verify caller via Authorization: Bearer header (LTI users are not
     // Supabase auth users, so supabaseClient.auth.getUser() cannot be used)
     const jwtSecret = Deno.env.get("TALOCK_JWT_SECRET") ?? "";
     const authHeader = req.headers.get("authorization") ?? "";
