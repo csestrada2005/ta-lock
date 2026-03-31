@@ -12,7 +12,7 @@ const corsHeaders = {
 };
 
 // ---------------------------------------------------------------------------
-// Cookie-based JWT validation (HS256, Web Crypto)
+// Bearer-token JWT validation (HS256, Web Crypto)
 // ---------------------------------------------------------------------------
 
 function base64urlToBytes(str: string): Uint8Array {
@@ -22,11 +22,11 @@ function base64urlToBytes(str: string): Uint8Array {
   return Uint8Array.from(binary, (c) => c.charCodeAt(0));
 }
 
-async function verifySessionCookie(
-  cookieHeader: string,
+async function verifySessionToken(
+  authHeader: string,
   secret: string,
 ): Promise<Record<string, unknown> | null> {
-  const match = cookieHeader.match(/(?:^|;\s*)talock_session=([^;]+)/);
+  const match = authHeader.match(/^Bearer\s+(.+)$/i);
   const token = match?.[1];
   if (!token) return null;
 
@@ -77,11 +77,11 @@ serve(async (req) => {
       throw new Error("API key not configured");
     }
 
-    // Verify caller via talock_session HttpOnly cookie (LTI users are not
+    // Verify caller via Authorization: Bearer header (LTI users are not
     // Supabase auth users, so supabaseClient.auth.getUser() cannot be used)
     const jwtSecret = Deno.env.get("TALOCK_JWT_SECRET") ?? "";
-    const cookieHeader = req.headers.get("cookie") ?? "";
-    const sessionPayload = await verifySessionCookie(cookieHeader, jwtSecret);
+    const authHeader = req.headers.get("authorization") ?? "";
+    const sessionPayload = await verifySessionToken(authHeader, jwtSecret);
     if (!sessionPayload) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,

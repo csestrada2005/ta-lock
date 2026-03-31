@@ -1,0 +1,24 @@
+-- Migration: LTI state parameter validation pattern
+--
+-- No schema change is required: the existing lti_nonces table is reused for
+-- both state and launch-token JTI storage via key prefixes.
+--
+-- Prefixed key conventions stored in lti_nonces.nonce:
+--
+--   nonce:<uuid>   — OIDC nonce registered by lti-oidc-init, consumed by
+--                    lti-launch after verifying the id_token nonce claim.
+--                    Prevents id_token replay attacks.
+--
+--   state:<uuid>   — OIDC state registered by lti-oidc-init, consumed by
+--                    lti-launch before any JWT processing.
+--                    Prevents CSRF attacks on the LTI launch callback.
+--
+--   jti:<uuid>     — Launch-token JTI registered by lti-launch, consumed by
+--                    lti-session/exchange on first use.
+--                    Enforces single-use semantics for the URL-borne launch
+--                    token, preventing token-replay after the frontend has
+--                    exchanged it for a session token stored in sessionStorage.
+--
+-- All three entry types share the same 10-minute (nonce/state) or 5-minute
+-- (jti) TTL via the expires_at column.  Expired rows are safe to prune by a
+-- scheduled job or Postgres TTL policy.
