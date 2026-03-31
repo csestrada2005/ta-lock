@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 import { TaLockProvider } from "@/contexts/TaLockContext";
 import { useTaLock } from "@/contexts/TaLockContext";
 import LTILaunch from "@/pages/LTILaunch";
@@ -13,8 +14,20 @@ const queryClient = new QueryClient();
 
 /** Guard: only render children if an LTI session is active */
 const RequireLTI = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated } = useTaLock();
-  if (!isAuthenticated) return <Navigate to="/unauthorized" replace />;
+  const { authStatus } = useTaLock();
+
+  if (authStatus === "loading") {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (authStatus === "unauthenticated") {
+    return <Navigate to="/unauthorized" replace />;
+  }
+
   return <>{children}</>;
 };
 

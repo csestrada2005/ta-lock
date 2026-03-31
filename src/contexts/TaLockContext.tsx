@@ -42,7 +42,8 @@ interface TaLockContextValue {
   theme: { primary: string; secondary: string };
   ready: boolean;
   lmsConfig: TaLockConfig | null;
-  /** True once LTILaunch has successfully validated the session cookie */
+  authStatus: "loading" | "authenticated" | "unauthenticated";
+  /** True once LTILaunch has successfully validated the session token */
   isAuthenticated: boolean;
   /** Called by LTILaunch after a successful lti-session fetch */
   setLtiState: (config: TaLockConfig) => void;
@@ -56,6 +57,7 @@ interface TaLockProviderProps {
 
 export function TaLockProvider({ children }: TaLockProviderProps) {
   const [lmsConfig, setLmsConfig] = useState<TaLockConfig | null>(null);
+  const [authStatus, setAuthStatus] = useState<"loading" | "authenticated" | "unauthenticated">("loading");
 
   const effectiveTenantId = lmsConfig?.tenantId ?? FALLBACK_TENANT_ID;
 
@@ -66,6 +68,63 @@ export function TaLockProvider({ children }: TaLockProviderProps) {
 
   const setLtiState = useCallback((config: TaLockConfig) => {
     setLmsConfig(config);
+    setAuthStatus("authenticated");
+  }, []);
+
+  useEffect(() => {
+    // Check session on mount
+    const checkSession = async () => {
+      const token = sessionStorage.getItem("talock_session");
+      if (!token) {
+        setAuthStatus("unauthenticated");
+        return;
+      }
+
+      try {
+        // Decode payload to check exp client-side (rough check)
+        const payloadB64 = token.split(".")[1];
+        if (payloadB64) {
+          const payloadStr = atob(payloadB64.replace(/-/g, "+").replace(/_/g, "/"));
+          const payload = JSON.parse(payloadStr);
+          if (payload.exp && Date.now() / 1000 > payload.exp) {
+            sessionStorage.removeItem("talock_session");
+            setAuthStatus("unauthenticated");
+            return;
+          }
+        }
+
+        // Validate via API and hydrate claims
+        const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/lti-session`, {
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        });
+
+        if (!res.ok) {
+          sessionStorage.removeItem("talock_session");
+          setAuthStatus("unauthenticated");
+          return;
+        }
+
+        const data = await res.json();
+
+        const config: TaLockConfig = {
+          tenantId: data.tenantId ?? "",
+          courseId: data.courseId ?? "",
+          studentId: data.studentId ?? "",
+        };
+
+        window.TaLockConfig = config;
+        setLmsConfig(config);
+        setAuthStatus("authenticated");
+
+      } catch (err) {
+        console.error("Session rehydration failed", err);
+        setAuthStatus("unauthenticated");
+      }
+    };
+
+    checkSession();
   }, []);
 
   useEffect(() => {
@@ -106,8 +165,7 @@ export function TaLockProvider({ children }: TaLockProviderProps) {
     root.style.setProperty("--shadow-glow", `0 0 40px -10px hsl(${primaryHsl} / 0.4)`);
   }, [resolvedTheme.primary, resolvedTheme.secondary]);
 
-  // Authenticated as soon as setLtiState has been called with valid claims
-  const isAuthenticated = lmsConfig !== null;
+  const isAuthenticated = authStatus === "authenticated";
 
   const value: TaLockContextValue = {
     tenantId: effectiveTenantId,
@@ -120,6 +178,7 @@ export function TaLockProvider({ children }: TaLockProviderProps) {
     theme: resolvedTheme,
     ready,
     lmsConfig,
+    authStatus,
     isAuthenticated,
     setLtiState,
   };

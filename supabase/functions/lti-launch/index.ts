@@ -146,10 +146,11 @@ serve(async (req) => {
   );
 
   try {
-    // ── 1. Extract id_token from POST body ──────────────────────────────────
+    // ── 1. Extract id_token and state from POST body ────────────────────────
     const body = await req.text();
     const params = new URLSearchParams(body);
     const idToken = params.get("id_token");
+    const state = params.get("state");
 
     if (!idToken) {
       return new Response(JSON.stringify({ error: "Missing id_token" }), {
@@ -157,6 +158,31 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    if (!state) {
+      return new Response(JSON.stringify({ error: "Invalid or missing state parameter" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ── 1b. Validate state parameter (CSRF protection) ──────────────────────
+    const { data: storedState } = await supabase
+      .from("lti_nonces")
+      .select("nonce")
+      .eq("nonce", `state:${state}`)
+      .gt("expires_at", new Date().toISOString())
+      .single();
+
+    if (!storedState) {
+      return new Response(JSON.stringify({ error: "Invalid or missing state parameter" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Consume the state to prevent reuse
+    await supabase.from("lti_nonces").delete().eq("nonce", `state:${state}`);
 
     const parts = idToken.split(".");
     if (parts.length !== 3) {
@@ -372,25 +398,45 @@ serve(async (req) => {
       jwtSecret,
     );
 
-    // ── 10. Redirect to frontend /launch with HttpOnly cookie ───────────────
-    // The frontend /launch page (LTILaunch.tsx) will call /lti-session to
-    // read non-sensitive claims, populate React context, then navigate to /chat.
+    // ── 10. Generate short-lived launch token ───────────────────────────────
+    const launchJti = crypto.randomUUID();
+    const launchExp = now + 300; // 5 minutes
+
+    const launchToken = await signHS256(
+      {
+        sessionJwt,
+        jti: launchJti,
+        iat,
+        exp: launchExp,
+      },
+      jwtSecret,
+    );
+
+    // Store jti to enforce single use
+    const { error: insertErr } = await supabase
+      .from("lti_nonces")
+      .insert({
+        nonce: launchJti,
+        expires_at: new Date(launchExp * 1000).toISOString(),
+      });
+
+    if (insertErr) {
+      console.error("Failed to store launch token jti:", insertErr);
+      return new Response(JSON.stringify({ error: "Internal server error" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ── 11. Redirect to frontend /launch with short-lived URL token ─────────
     const frontendUrl = Deno.env.get("FRONTEND_URL") ?? "";
-    const redirectTarget = `${frontendUrl}/launch`;
+    const redirectTarget = `${frontendUrl}/launch?lt=${launchToken}`;
 
     return new Response(null, {
       status: 302,
       headers: {
         ...corsHeaders,
         Location: redirectTarget,
-        "Set-Cookie": [
-          `talock_session=${sessionJwt}`,
-          "HttpOnly",
-          "Secure",
-          "SameSite=None",
-          "Path=/",
-          "Max-Age=3600",
-        ].join("; "),
       },
     });
   } catch (err) {
