@@ -315,12 +315,12 @@ serve(async (req) => {
       });
     }
 
-    const nbf = jwtPayload.nbf;
-    if (nbf !== undefined && typeof nbf === "number" && now < nbf) {
-      return new Response(JSON.stringify({ error: "JWT not yet valid (nbf)" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    const nbf = jwtPayload.nbf as number | undefined;
+    if (nbf !== undefined && now < nbf - 5) {
+      return new Response(
+        JSON.stringify({ error: "JWT not yet valid (nbf)" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Audience must contain our client_id
