@@ -143,7 +143,14 @@ serve(async (req) => {
   const studentId = sessionPayload.studentId as string;
   const tenantId = sessionPayload.tenantId as string;
 
-  if (!agsLineitem || !agsScopes || !agsScopes.includes("https://purl.imsglobal.org/spec/lti-ags/scope/score")) {
+  if (!agsLineitem) {
+    return new Response(
+      JSON.stringify({ error: "No AGS lineitem in session. Tool must be launched as a Canvas Assignment." }),
+      { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+
+  if (!agsScopes || !agsScopes.includes("https://purl.imsglobal.org/spec/lti-ags/scope/score")) {
     return new Response(JSON.stringify({ error: "AGS score scope not granted" }), {
       status: 403,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -151,8 +158,8 @@ serve(async (req) => {
   }
 
   try {
-    const body = await req.json() as { scoreType: 'quiz' | 'engagement', scoreValue: number, comment?: string };
-    const { scoreType, scoreValue, comment } = body;
+    const body = await req.json() as { scoreGiven: number; scoreMaximum: number };
+    const { scoreGiven, scoreMaximum } = body;
 
     const privateKeyPem = Deno.env.get("TALOCK_PRIVATE_KEY") ?? "";
     if (!privateKeyPem) {
@@ -219,12 +226,11 @@ serve(async (req) => {
     // Submit the score
     const scoreObject = {
         userId: studentId,
-        scoreGiven: scoreValue,
-        scoreMaximum: 1.0,
-        comment: comment || `LTI AGS ${scoreType} submission`,
-        timestamp: new Date().toISOString(),
+        scoreGiven,
+        scoreMaximum,
         activityProgress: "Completed",
-        gradingProgress: "FullyGraded"
+        gradingProgress: "FullyGraded",
+        timestamp: new Date().toISOString(),
     };
 
     const scoreResponse = await fetch(`${agsLineitem}/scores`, {
@@ -237,12 +243,17 @@ serve(async (req) => {
     });
 
     if (!scoreResponse.ok) {
-        const errorText = await scoreResponse.text();
-        console.error("Failed to submit score", scoreResponse.status, errorText);
-        throw new Error("Failed to submit score to LMS");
+        const canvasErrorBody = await scoreResponse.text();
+        console.error("Failed to submit score", scoreResponse.status, canvasErrorBody);
+        let parsedError: unknown;
+        try { parsedError = JSON.parse(canvasErrorBody); } catch { parsedError = canvasErrorBody; }
+        return new Response(JSON.stringify(parsedError), {
+            status: 502,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
     }
 
-    return new Response(JSON.stringify({ submitted: true }), {
+    return new Response(JSON.stringify({ success: true }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
