@@ -70,9 +70,6 @@ const LTILaunch = () => {
           studentId: data.claims.studentId ?? "",
         };
 
-        // Expose non-sensitive fields for legacy consumers (no token)
-        window.TaLockConfig = config;
-
         setLtiState(config);
         navigate("/chat", { replace: true });
       } catch {

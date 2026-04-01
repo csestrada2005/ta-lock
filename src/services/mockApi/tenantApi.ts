@@ -27,16 +27,10 @@ const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
  * theme overrides via window.TaLockConfig.theme, which take precedence over
  * the values returned here.
  */
-export async function fetchTenantConfig(_tenantId: string): Promise<TenantConfig> {
-  if (import.meta.env.PROD) {
-    throw new Error(
-      "mockApi must not be used in production — replace with real tenant API call",
-    );
-  }
+import { apiFetch } from "@/lib/auth";
 
-  await delay(SIMULATED_DELAY);
-
-  return {
+export async function fetchTenantConfig(tenantId: string): Promise<TenantConfig> {
+  const fallbackConfig: TenantConfig = {
     theme: {
       primary: "#800000",
       secondary: "#F1B82D",
@@ -44,4 +38,20 @@ export async function fetchTenantConfig(_tenantId: string): Promise<TenantConfig
     logoUrl: "/ta-lock-logo.png",
     brandName: "TaLock",
   };
+
+  if (import.meta.env.PROD) {
+    try {
+      const response = await apiFetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/tenant-config?tenantId=${tenantId}`);
+      if (!response.ok) {
+        return fallbackConfig;
+      }
+      return (await response.json()) as TenantConfig;
+    } catch {
+      return fallbackConfig;
+    }
+  }
+
+  await delay(SIMULATED_DELAY);
+
+  return fallbackConfig;
 }

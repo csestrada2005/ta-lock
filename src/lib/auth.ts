@@ -12,8 +12,12 @@ export const AUTH_MODE = "bearer" as const;
  * attaches it as an Authorization: Bearer header on every request.
  * If no token is present the request is still made; the server will 401.
  */
+export function getAuthToken(): string | null {
+  return sessionStorage.getItem("talock_session");
+}
+
 export function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
-  const token = sessionStorage.getItem("talock_session");
+  const token = getAuthToken();
   const headers = new Headers(options.headers);
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);

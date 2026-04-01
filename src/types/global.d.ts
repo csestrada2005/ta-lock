@@ -13,6 +13,3 @@ interface TaLockConfig {
   };
 }
 
-interface Window {
-  TaLockConfig?: TaLockConfig;
-}

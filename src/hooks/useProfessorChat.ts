@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { apiFetch } from "@/lib/auth";
 import { toast } from "@/hooks/use-toast";
 import type { Mode, Message, ExpertiseLevel, DiagnosticQuizData, DiagnosticSubmission, SystemEvent, SocraticState } from "@/components/professor-ai/types";
+import { useTaLock } from "@/contexts/TaLockContext";
 
 const NO_MATERIALS_FALLBACK_PHRASES = [
   "couldn't find relevant materials",
@@ -40,6 +41,7 @@ export const useProfessorChat = ({
   expertiseLevel,
   onExpertiseLevelChange,
 }: UseProfessorChatProps) => {
+  const { studentId, tenantId } = useTaLock();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [streamingContent, setStreamingContent] = useState<string>("");
@@ -53,12 +55,37 @@ export const useProfessorChat = ({
   // Session ID for chat persistence - persists for the duration of the user's visit
   const sessionIdRef = useRef<string>(crypto.randomUUID());
 
+  // Track number of messages sent in this session for engagement grading
+  const messageCountRef = useRef<number>(0);
 
   // Clear chat when mode or lecture changes
   useEffect(() => {
     setMessages([]);
     setStreamingContent("");
   }, [mode, selectedLecture]);
+
+  // Submit engagement metric on unmount
+  useEffect(() => {
+    return () => {
+      // Simple heuristic: min 3 messages for engagement score
+      const count = messageCountRef.current;
+      if (count >= 3) {
+        const scoreValue = Math.min(count / 10, 1.0);
+        apiFetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/lti-ags-submit`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              scoreType: 'engagement',
+              scoreValue,
+              comment: 'Session engagement',
+            }),
+          }
+        ).catch(err => console.error("Failed to submit engagement score:", err));
+      }
+    };
+  }, []);
 
   const checkForNoMaterialsFallback = (content: string): boolean => {
     const lowerContent = content.toLowerCase();
@@ -155,7 +182,7 @@ export const useProfessorChat = ({
 
   const saveConversationAndMessage = async (userContent: string, assistantContent: string) => {
     try {
-      const userId = window.TaLockConfig?.studentId ?? "";
+      const userId = studentId;
       if (!userId) return null;
       let conversationId = activeConversationId;
 
@@ -215,6 +242,7 @@ export const useProfessorChat = ({
     // Only show user message if not hidden
     if (!isHidden) {
       setMessages(prev => [...prev, userMessage]);
+      messageCountRef.current += 1; // Increment engagement counter
     }
 
     setIsLoading(true);
@@ -223,8 +251,6 @@ export const useProfessorChat = ({
     setIsGeneratingDiagnostic(false);
 
     try {
-      const studentId = window.TaLockConfig?.studentId ?? "";
-
       // Send selectedLecture as null or empty string if "All Lectures" is selected or not selected
       const lectureToSend = selectedLecture === "__all__" ? null : selectedLecture;
 
@@ -244,8 +270,8 @@ export const useProfessorChat = ({
           headers: {
             "Content-Type": "application/json",
             "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            "x-student-id": window.TaLockConfig?.studentId ?? "",
-            "x-tenant-id": window.TaLockConfig?.tenantId ?? "",
+            "x-student-id": studentId,
+            "x-tenant-id": tenantId,
           },
           body: JSON.stringify({
             messages: [...recentMessages, apiUserMessage],
@@ -509,8 +535,6 @@ export const useProfessorChat = ({
   // Submit diagnostic quiz results to backend
   const submitDiagnostic = async (payload: DiagnosticSubmission) => {
     try {
-      const studentId = window.TaLockConfig?.studentId ?? "";
-
       const response = await apiFetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/professor-chat`,
         {
@@ -518,8 +542,8 @@ export const useProfessorChat = ({
           headers: {
             "Content-Type": "application/json",
             "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            "x-student-id": window.TaLockConfig?.studentId ?? "",
-            "x-tenant-id": window.TaLockConfig?.tenantId ?? "",
+            "x-student-id": studentId,
+            "x-tenant-id": tenantId,
           },
           body: JSON.stringify({
             endpoint: "submit-diagnostic",
@@ -557,6 +581,36 @@ export const useProfessorChat = ({
         ]);
       }
 
+      // Calculate score value (correct answers / total questions)
+      if (diagnosticQuiz?.questions) {
+        let correctCount = 0;
+        const totalCount = diagnosticQuiz.questions.length;
+
+        for (const [qId, ans] of Object.entries(payload.answers)) {
+          const question = diagnosticQuiz.questions.find(q => q.id === qId);
+          if (question && question.correct_answer === ans) {
+            correctCount++;
+          }
+        }
+
+        const scoreValue = totalCount > 0 ? correctCount / totalCount : 0;
+        const topicSlug = diagnosticQuiz.topic_slug || "general-review";
+
+        // Submit quiz score via AGS fire-and-forget
+        apiFetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/lti-ags-submit`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              scoreType: 'quiz',
+              scoreValue,
+              comment: `Quiz: ${topicSlug}`,
+            }),
+          }
+        ).catch(err => console.error("Failed to submit quiz score:", err));
+      }
+
       // Close the diagnostic quiz
       setDiagnosticQuiz(null);
 
@@ -579,8 +633,6 @@ export const useProfessorChat = ({
   const updateSocraticState = async (userMessage: string) => {
     if (mode !== "Study") return;
     try {
-      const studentId = window.TaLockConfig?.studentId ?? "";
-
       const response = await apiFetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/professor-chat?endpoint=socratic-update`,
         {
@@ -588,8 +640,8 @@ export const useProfessorChat = ({
           headers: {
             "Content-Type": "application/json",
             apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            "x-student-id": window.TaLockConfig?.studentId ?? "",
-            "x-tenant-id": window.TaLockConfig?.tenantId ?? "",
+            "x-student-id": studentId,
+            "x-tenant-id": tenantId,
           },
           body: JSON.stringify({
             user_id: studentId,

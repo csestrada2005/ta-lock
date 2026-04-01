@@ -10,6 +10,7 @@ import { Loader2 } from "lucide-react";
 import LTILaunch from "@/pages/LTILaunch";
 import ProfessorAI from "@/pages/ProfessorAI";
 import Unauthorized from "@/pages/Unauthorized";
+import DeepLink from "@/pages/DeepLink";
 
 const queryClient = new QueryClient();
 
@@ -36,6 +37,7 @@ const App = () => (
           <Sonner />
           <Routes>
             <Route path="/launch" element={<LTILaunch />} />
+            <Route path="/deep-link" element={<DeepLink />} />
             <Route
               path="/chat"
               element={
