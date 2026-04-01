@@ -188,6 +188,8 @@ serve(async (req) => {
           studentId: sessionPayload.studentId,
           deploymentId: sessionPayload.deploymentId,
           isDeepLink: sessionPayload.isDeepLink,
+          agsLineitem: sessionPayload.agsLineitem ?? null,
+          agsScopes: (sessionPayload.agsScopes as string[] | undefined) ?? null,
         },
       }),
       {
@@ -243,6 +245,9 @@ serve(async (req) => {
       courseId: payload.courseId,
       studentId: payload.studentId,
       deploymentId: payload.deploymentId,
+      isDeepLink: (payload.isDeepLink as boolean | undefined) ?? false,
+      agsLineitem: payload.agsLineitem ?? null,
+      agsScopes: (payload.agsScopes as string[] | undefined) ?? null,
     }),
     {
       status: 200,

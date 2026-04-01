@@ -16,11 +16,21 @@ export function getAuthToken(): string | null {
   return sessionStorage.getItem("talock_session");
 }
 
-export function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
+export async function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const token = getAuthToken();
   const headers = new Headers(options.headers);
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
   }
-  return fetch(url, { ...options, headers });
+  const response = await fetch(url, { ...options, headers });
+
+  if (response.status === 401) {
+    sessionStorage.removeItem("talock_session");
+    if (window.location.pathname !== "/unauthorized") {
+      window.location.href = "/unauthorized?reason=session_expired";
+    }
+    throw new Error("Session expired");
+  }
+
+  return response;
 }

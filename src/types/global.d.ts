@@ -3,6 +3,9 @@ interface TaLockConfig {
   tenantId: string;
   courseId: string;
   studentId: string;
+  agsLineitem?: string | null;
+  agsScopes?: string[] | null;
+  deploymentId?: string;
   term?: string;          // Optional: academic term identifier
   locale?: string;        // Optional: BCP-47 locale string e.g. "en-US"
   theme?: {

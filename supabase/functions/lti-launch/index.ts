@@ -182,7 +182,7 @@ serve(async (req) => {
 
     if (!storedState) {
       return new Response(
-        JSON.stringify({ error: "Invalid or missing state parameter" }),
+        JSON.stringify({ error: "Invalid or expired state" }),
         {
           status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
