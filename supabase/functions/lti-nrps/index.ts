@@ -4,7 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
   "Access-Control-Allow-Headers": "content-type, authorization",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
 };
 
 function base64urlToBytes(str: string): Uint8Array {
@@ -64,12 +64,11 @@ async function signRS256(
   const encoder = new TextEncoder();
 
   const headerB64 = bytesToBase64url(
-    encoder.encode(JSON.stringify({ alg: "RS256", typ: "JWT", kid: "talock-1" })),
+    encoder.encode(JSON.stringify({ alg: "RS256", typ: "JWT" })),
   );
   const payloadB64 = bytesToBase64url(encoder.encode(JSON.stringify(payload)));
   const signingInput = `${headerB64}.${payloadB64}`;
 
-  // Strip PEM header/footer and decode base64
   const pemContents = privateKeyPem
     .replace(/-----BEGIN PRIVATE KEY-----/, "")
     .replace(/-----END PRIVATE KEY-----/, "")
@@ -98,13 +97,12 @@ async function signRS256(
   return `${signingInput}.${bytesToBase64url(new Uint8Array(rawSig))}`;
 }
 
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
-  if (req.method !== "POST") {
+  if (req.method !== "GET") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), {
       status: 405,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -140,78 +138,127 @@ serve(async (req) => {
     });
   }
 
-  if (sessionPayload.isDeepLink !== true || !sessionPayload.deepLinkReturnUrl) {
-    return new Response(JSON.stringify({ error: "Not a deep link session" }), {
-      status: 403,
+  const deploymentId = sessionPayload.deploymentId as string | undefined;
+  const courseId = sessionPayload.courseId as string | undefined;
+
+  if (!deploymentId || !courseId) {
+    return new Response(JSON.stringify({ error: "Missing deploymentId or courseId" }), {
+      status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
   try {
-    const body = await req.json() as { selectedConfig?: { primaryColor?: string, secondaryColor?: string, logoUrl?: string, brandName?: string } };
-    const { selectedConfig } = body;
-
-    const privateKeyPem = Deno.env.get("TALOCK_PRIVATE_KEY") ?? "";
-    if (!privateKeyPem) {
-        console.error("TALOCK_PRIVATE_KEY is not set");
-        return new Response(JSON.stringify({ error: "Server configuration error" }), {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-    }
-
-    const clientId = Deno.env.get("LTI_CLIENT_ID") ?? "";
-
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
-    const { data: platform } = await supabase
+
+    const { data: platform, error: platformErr } = await supabase
       .from("lti_platforms")
-      .select("iss")
-      .eq("deployment_id", sessionPayload.deploymentId)
+      .select("client_id, access_token_url, nrps_context_memberships_url")
+      .eq("deployment_id", deploymentId)
       .single();
 
-    const platformIss = platform?.iss ?? "";
+    if (platformErr || !platform) {
+      return new Response(JSON.stringify({ error: "Platform not found" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-    if (!platformIss) {
-      return new Response(JSON.stringify({ error: "Platform not found or missing iss" }), {
+    if (!platform.nrps_context_memberships_url) {
+      return new Response(JSON.stringify({ error: "NRPS not configured for this platform" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!platform.access_token_url) {
+      return new Response(JSON.stringify({ error: "Access token URL not configured" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const privateKeyPem = Deno.env.get("TALOCK_PRIVATE_KEY") ?? "";
+    if (!privateKeyPem) {
+      console.error("TALOCK_PRIVATE_KEY is not set");
+      return new Response(JSON.stringify({ error: "Server configuration error" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const jwtPayload = {
+    const clientId = platform.client_id;
+    const accessTokenUrl = platform.access_token_url;
+
+    const iat = Math.floor(Date.now() / 1000);
+    const exp = iat + 60;
+    const jti = crypto.randomUUID();
+
+    const clientAssertionPayload = {
       iss: clientId,
-      aud: platformIss, // The LMS issuer
-      iat: now,
-      exp: now + 600,
-      nonce: crypto.randomUUID(),
-      "https://purl.imsglobal.org/spec/lti/claim/message_type": "LtiDeepLinkingResponse",
-      "https://purl.imsglobal.org/spec/lti/claim/version": "1.3.0",
-      "https://purl.imsglobal.org/spec/lti/claim/deployment_id": sessionPayload.deploymentId,
-      "https://purl.imsglobal.org/spec/lti-dl/claim/content_items": [
-        {
-          type: "ltiResourceLink",
-          title: selectedConfig?.brandName || "TaLock Chat",
-          custom: {
-              primaryColor: selectedConfig?.primaryColor,
-              secondaryColor: selectedConfig?.secondaryColor,
-              logoUrl: selectedConfig?.logoUrl,
-              brandName: selectedConfig?.brandName
-          }
-        }
-      ]
+      sub: clientId,
+      aud: accessTokenUrl,
+      iat,
+      exp,
+      jti
     };
 
-    const signedJwt = await signRS256(jwtPayload, privateKeyPem);
+    const clientAssertion = await signRS256(clientAssertionPayload, privateKeyPem);
 
-    return new Response(JSON.stringify({ jwt: signedJwt, returnUrl: sessionPayload.deepLinkReturnUrl }), {
+    const tokenParams = new URLSearchParams();
+    tokenParams.append("grant_type", "client_credentials");
+    tokenParams.append("client_assertion_type", "urn:ietf:params:oauth:client-assertion-type:jwt-bearer");
+    tokenParams.append("client_assertion", clientAssertion);
+    tokenParams.append("scope", "https://purl.imsglobal.org/spec/lti-nrps/scope/contextmembership.readonly");
+
+    const tokenRes = await fetch(accessTokenUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded"
+      },
+      body: tokenParams
+    });
+
+    if (!tokenRes.ok) {
+      const errText = await tokenRes.text();
+      console.error("Failed to fetch access token:", errText);
+      return new Response(JSON.stringify({ error: "Failed to obtain platform access token" }), {
+        status: 502,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const tokenData = await tokenRes.json();
+    const accessToken = tokenData.access_token;
+
+    const nrpsRes = await fetch(platform.nrps_context_memberships_url, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Accept": "application/vnd.ims.lti-nrps.v2.membershipcontainer+json"
+      }
+    });
+
+    if (!nrpsRes.ok) {
+      const errText = await nrpsRes.text();
+      console.error("Failed to fetch NRPS memberships:", errText);
+      return new Response(JSON.stringify({ error: "Failed to fetch memberships from platform" }), {
+        status: 502,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const membershipData = await nrpsRes.json();
+
+    return new Response(JSON.stringify({ members: membershipData.members || [] }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
-    console.error("lti-deep-link-response error:", err);
+    console.error("lti-nrps error:", err);
     return new Response(JSON.stringify({ error: "Internal server error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
