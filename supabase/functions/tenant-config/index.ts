@@ -121,7 +121,7 @@ serve(async (req) => {
 
   try {
     const { data: config, error } = await supabase
-      .from("tenant_configs")
+      .from("tenants")
       .select("primary_color, secondary_color, logo_url, brand_name")
       .eq("tenant_id", tenantId)
       .single();

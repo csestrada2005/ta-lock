@@ -5,6 +5,7 @@ import 'katex/dist/katex.min.css';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
+import { useTaLock } from "@/contexts/TaLockContext";
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
 import type { Message } from "./types";
@@ -205,6 +206,7 @@ const remarkPlugins = [remarkGfm, remarkMath];
 const rehypePlugins = [rehypeKatex, rehypeRaw];
 
 export const ProfessorMessage = ({ message, isStreaming = false, messageId, sessionId, userQuery }: ProfessorMessageProps) => {
+  const { studentId } = useTaLock();
   const isUser = message.role === "user";
   const [copied, setCopied] = useState(false);
   const [feedbackRating, setFeedbackRating] = useState<number | null>(null);
@@ -217,7 +219,7 @@ export const ProfessorMessage = ({ message, isStreaming = false, messageId, sess
 
     const loadFeedback = async () => {
       try {
-        const userId = window.TaLockConfig?.studentId ?? "";
+        const userId = studentId ?? "";
         if (!userId) return;
 
         const { data } = await supabase
@@ -274,7 +276,7 @@ export const ProfessorMessage = ({ message, isStreaming = false, messageId, sess
       toast.success("Thanks for your feedback!");
 
       if (messageId) {
-        const userId = window.TaLockConfig?.studentId ?? "";
+        const userId = studentId ?? "";
         if (userId) {
           const feedbackType = rating >= 4 ? 'up' : rating <= 2 ? 'down' : 'up';
           await supabase

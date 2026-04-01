@@ -6,7 +6,8 @@ const REASON_MESSAGES: Record<string, string> = {
   token_expired: "Your launch session has expired. Please relaunch the tool from your LMS.",
   token_used: "This launch link has already been used. Please relaunch the tool from your LMS.",
   network_error: "Could not reach the authentication server. Please check your connection and try again.",
-  not_deep_link: "This launch is not a valid deep linking request. Please try again.",
+  not_deep_link: "This launch is not a valid Deep Linking request. Please contact your instructor.",
+  session_expired: "Your session has expired. Close this tab and relaunch TaLock from your Canvas module to continue.",
 };
 
 const Unauthorized = () => {
