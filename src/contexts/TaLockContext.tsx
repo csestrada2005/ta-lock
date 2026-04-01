@@ -35,6 +35,9 @@ interface TaLockContextValue {
   tenantId: string;
   courseId: string;
   studentId: string;
+  agsLineitem: string | null;
+  agsScopes: string[] | null;
+  deploymentId: string;
   term: string;
   locale: string;
   brandName: string;
@@ -115,11 +118,16 @@ export function TaLockProvider({ children }: TaLockProviderProps) {
           courseId: string;
           studentId: string;
           deploymentId?: string;
+          agsLineitem?: string | null;
+          agsScopes?: string[] | null;
         };
         setLmsConfig({
           tenantId: data.tenantId ?? "",
           courseId: data.courseId ?? "",
           studentId: data.studentId ?? "",
+          deploymentId: data.deploymentId ?? "",
+          agsLineitem: data.agsLineitem ?? null,
+          agsScopes: data.agsScopes ?? null,
         });
         setAuthStatus("authenticated");
       })
@@ -178,6 +186,9 @@ export function TaLockProvider({ children }: TaLockProviderProps) {
     tenantId: effectiveTenantId,
     courseId: lmsConfig?.courseId ?? "",
     studentId: lmsConfig?.studentId ?? "",
+    agsLineitem: lmsConfig?.agsLineitem ?? null,
+    agsScopes: lmsConfig?.agsScopes ?? null,
+    deploymentId: lmsConfig?.deploymentId ?? "",
     term: lmsConfig?.term ?? "",
     locale: lmsConfig?.locale ?? "en-US",
     brandName: resolvedBrandName,

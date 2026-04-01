@@ -103,19 +103,6 @@ serve(async (req) => {
       });
     }
 
-    // Store state with a "state:" prefix so lti-launch can validate it (CSRF protection)
-    const { error: insertStateErr } = await supabase
-      .from("lti_nonces")
-      .insert({ nonce: `state:${state}`, expires_at: expiresAt });
-
-    if (insertStateErr) {
-      console.error("Failed to store state:", insertStateErr);
-      return new Response(JSON.stringify({ error: "Internal server error" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     // ── 5. Build the OIDC auth redirect URL ─────────────────────────────────
     const ltiLaunchUrl = Deno.env.get("LTI_LAUNCH_URL") ?? "";
     const effectiveClientId =

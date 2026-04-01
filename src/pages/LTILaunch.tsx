@@ -55,6 +55,8 @@ const LTILaunch = () => {
             courseId: string;
             studentId: string;
             deploymentId?: string;
+            agsLineitem?: string | null;
+            agsScopes?: string[] | null;
           };
         };
 
@@ -68,6 +70,9 @@ const LTILaunch = () => {
           tenantId: data.claims.tenantId ?? "",
           courseId: data.claims.courseId ?? "",
           studentId: data.claims.studentId ?? "",
+          deploymentId: data.claims.deploymentId ?? "",
+          agsLineitem: data.claims.agsLineitem ?? null,
+          agsScopes: data.claims.agsScopes ?? null,
         };
 
         setLtiState(config);
