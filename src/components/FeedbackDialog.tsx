@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import { useTaLock } from "@/contexts/TaLockContext";
 
 interface FeedbackDialogProps {
   open: boolean;
@@ -18,6 +19,7 @@ interface FeedbackDialogProps {
 }
 
 export const FeedbackDialog = ({ open, onOpenChange }: FeedbackDialogProps) => {
+  const { studentId } = useTaLock();
   const [feedback, setFeedback] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
@@ -34,7 +36,7 @@ export const FeedbackDialog = ({ open, onOpenChange }: FeedbackDialogProps) => {
 
     setIsSubmitting(true);
     try {
-      const userId = window.TaLockConfig?.studentId ?? "";
+      const userId = studentId ?? "";
       if (!userId) throw new Error("Not authenticated");
 
       const { error } = await supabase.from("feedback").insert({

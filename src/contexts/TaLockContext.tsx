@@ -1,5 +1,11 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
-import { fetchTenantConfig } from "@/services/mockApi";
+import { apiFetch } from "@/lib/auth";
+
+export interface TenantConfig {
+  theme: { primary: string; secondary: string };
+  logoUrl: string;
+  brandName: string;
+}
 
 // ---------- hex → HSL helper ----------
 function hexToHsl(hex: string): string {
@@ -137,18 +143,24 @@ export function TaLockProvider({ children }: TaLockProviderProps) {
   }, []);
 
   useEffect(() => {
-    fetchTenantConfig(effectiveTenantId)
-      .then((cfg) => {
+    if (!effectiveTenantId || effectiveTenantId === FALLBACK_TENANT_ID) {
+      setReady(true);
+      return;
+    }
+    apiFetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/tenant-config?tenantId=${effectiveTenantId}`
+    )
+      .then(async (res) => {
+        if (!res.ok) return;
+        const cfg = await res.json() as TenantConfig;
         setApiTheme(cfg.theme);
         setApiLogoUrl(cfg.logoUrl);
         setApiBrandName(cfg.brandName);
-        setReady(true);
       })
       .catch((err) => {
         console.error("Failed to fetch tenant config:", err);
-        // Fall through to fallback values (resolvedTheme, resolvedLogoUrl, resolvedBrandName)
-        setReady(true);
-      });
+      })
+      .finally(() => setReady(true));
   }, [effectiveTenantId]);
 
   const resolvedTheme = {
