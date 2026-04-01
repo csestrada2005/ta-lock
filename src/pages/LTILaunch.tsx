@@ -55,6 +55,8 @@ const LTILaunch = () => {
             courseId: string;
             studentId: string;
             deploymentId?: string;
+            userRole: "instructor" | "student";
+            roles: string[];
             agsLineitem?: string | null;
             agsScopes?: string[] | null;
           };
@@ -71,6 +73,8 @@ const LTILaunch = () => {
           courseId: data.claims.courseId ?? "",
           studentId: data.claims.studentId ?? "",
           deploymentId: data.claims.deploymentId ?? "",
+          userRole: data.claims.userRole,
+          roles: data.claims.roles,
           agsLineitem: data.claims.agsLineitem ?? null,
           agsScopes: data.claims.agsScopes ?? null,
         };

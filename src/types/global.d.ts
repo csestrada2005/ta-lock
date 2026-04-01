@@ -6,6 +6,8 @@ interface TaLockConfig {
   agsLineitem?: string | null;
   agsScopes?: string[] | null;
   deploymentId?: string;
+  userRole: "instructor" | "student";
+  roles?: string[];
   term?: string;          // Optional: academic term identifier
   locale?: string;        // Optional: BCP-47 locale string e.g. "en-US"
   theme?: {

@@ -44,6 +44,8 @@ interface TaLockContextValue {
   agsLineitem: string | null;
   agsScopes: string[] | null;
   deploymentId: string;
+  userRole: "instructor" | "student";
+  roles: string[];
   term: string;
   locale: string;
   brandName: string;
@@ -124,6 +126,8 @@ export function TaLockProvider({ children }: TaLockProviderProps) {
           courseId: string;
           studentId: string;
           deploymentId?: string;
+          userRole?: "instructor" | "student";
+          roles?: string[];
           agsLineitem?: string | null;
           agsScopes?: string[] | null;
         };
@@ -132,6 +136,8 @@ export function TaLockProvider({ children }: TaLockProviderProps) {
           courseId: data.courseId ?? "",
           studentId: data.studentId ?? "",
           deploymentId: data.deploymentId ?? "",
+          userRole: data.userRole ?? "student",
+          roles: data.roles ?? [],
           agsLineitem: data.agsLineitem ?? null,
           agsScopes: data.agsScopes ?? null,
         });
@@ -201,6 +207,8 @@ export function TaLockProvider({ children }: TaLockProviderProps) {
     agsLineitem: lmsConfig?.agsLineitem ?? null,
     agsScopes: lmsConfig?.agsScopes ?? null,
     deploymentId: lmsConfig?.deploymentId ?? "",
+    userRole: lmsConfig?.userRole ?? "student",
+    roles: lmsConfig?.roles ?? [],
     term: lmsConfig?.term ?? "",
     locale: lmsConfig?.locale ?? "en-US",
     brandName: resolvedBrandName,

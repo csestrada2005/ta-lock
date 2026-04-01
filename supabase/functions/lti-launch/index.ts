@@ -114,6 +114,44 @@ async function signHS256(
   return `${signingInput}.${bytesToBase64url(new Uint8Array(rawSig))}`;
 }
 
+async function fetchJwksWithCache(
+  jwksUri: string,
+  supabase: ReturnType<typeof createClient>,
+): Promise<{ keys: Array<{ kid?: string; kty: string } & JsonWebKey> }> {
+  const now = new Date();
+
+  // Try cache first
+  const { data: cached } = await supabase
+    .from("jwks_cache")
+    .select("jwks_json, expires_at")
+    .eq("jwks_uri", jwksUri)
+    .single();
+
+  if (cached && new Date(cached.expires_at) > now) {
+    return cached.jwks_json as { keys: Array<{ kid?: string; kty: string } & JsonWebKey> };
+  }
+
+  // Cache miss or expired — fetch live
+  const res = await fetch(jwksUri);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch JWKS: ${res.status}`);
+  }
+  const jwks = await res.json();
+
+  // Upsert into cache with 1-hour TTL
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+  await supabase
+    .from("jwks_cache")
+    .upsert({
+      jwks_uri: jwksUri,
+      jwks_json: jwks,
+      fetched_at: now.toISOString(),
+      expires_at: expiresAt,
+    }, { onConflict: "jwks_uri" });
+
+  return jwks;
+}
+
 // ---------------------------------------------------------------------------
 // Handler
 // ---------------------------------------------------------------------------
@@ -162,37 +200,6 @@ serve(async (req) => {
       });
     }
 
-    // ── 2. Validate state parameter (CSRF protection) ────────────────────────
-    if (!state) {
-      return new Response(
-        JSON.stringify({ error: "Invalid or missing state parameter" }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
-    }
-
-    const { data: storedState } = await supabase
-      .from("lti_nonces")
-      .select("nonce")
-      .eq("nonce", `state:${state}`)
-      .gt("expires_at", new Date().toISOString())
-      .single();
-
-    if (!storedState) {
-      return new Response(
-        JSON.stringify({ error: "Invalid or expired state" }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
-    }
-
-    // Consume the state to prevent reuse
-    await supabase.from("lti_nonces").delete().eq("nonce", `state:${state}`);
-
     const parts = idToken.split(".");
     if (parts.length !== 3) {
       return new Response(JSON.stringify({ error: "Malformed JWT" }), {
@@ -203,7 +210,7 @@ serve(async (req) => {
 
     const [headerB64, payloadB64, signatureB64] = parts;
 
-    // ── 3. Decode header and payload ─────────────────────────────────────────
+    // ── 2. Decode header and payload ─────────────────────────────────────────
     let jwtHeader: { alg?: string; kid?: string; typ?: string };
     let jwtPayload: Record<string, unknown>;
     try {
@@ -218,6 +225,7 @@ serve(async (req) => {
 
     const kid = jwtHeader.kid;
     const iss = jwtPayload.iss as string | undefined;
+    const nonce = jwtPayload.nonce as string | undefined;
 
     if (!iss) {
       return new Response(JSON.stringify({ error: "Missing iss claim" }), {
@@ -227,6 +235,37 @@ serve(async (req) => {
     }
 
     const deploymentId = jwtPayload["https://purl.imsglobal.org/spec/lti/claim/deployment_id"] as string | undefined;
+
+    // ── 3. Validate state+nonce binding (CSRF protection) ────────────────────
+    if (!state || !nonce) {
+      return new Response(
+        JSON.stringify({ error: "Invalid or missing state or nonce parameter" }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    const { data: storedState } = await supabase
+      .from("lti_nonces")
+      .select("nonce")
+      .eq("nonce", `state:${state}:nonce:${nonce}`)
+      .gt("expires_at", new Date().toISOString())
+      .single();
+
+    if (!storedState) {
+      return new Response(
+        JSON.stringify({ error: "Invalid or expired state" }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    // Consume the state to prevent reuse
+    await supabase.from("lti_nonces").delete().eq("nonce", `state:${state}:nonce:${nonce}`);
 
     if (!deploymentId) {
       return new Response(JSON.stringify({ error: "Missing deployment_id claim" }), {
@@ -251,17 +290,15 @@ serve(async (req) => {
     }
 
     // ── 5. Fetch the platform's JWKS and find the matching key ───────────────
-    const jwksRes = await fetch(platform.jwks_uri as string);
-    if (!jwksRes.ok) {
-      return new Response(JSON.stringify({ error: "Failed to fetch JWKS" }), {
+    let jwks;
+    try {
+      jwks = await fetchJwksWithCache(platform.jwks_uri as string, supabase);
+    } catch {
+      return new Response(JSON.stringify({ error: "Failed to fetch or cache platform JWKS" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const jwks = (await jwksRes.json()) as {
-      keys: Array<{ kid?: string; kty: string } & JsonWebKey>;
-    };
 
     const jwk = kid
       ? jwks.keys.find((k) => k.kid === kid)
@@ -339,7 +376,6 @@ serve(async (req) => {
     }
 
     // ── 8. Nonce uniqueness (anti-replay) ─────────────────────────────────────
-    const nonce = jwtPayload.nonce as string | undefined;
     if (!nonce) {
       return new Response(JSON.stringify({ error: "Missing nonce claim" }), {
         status: 401,
@@ -351,7 +387,7 @@ serve(async (req) => {
     const { data: storedNonce } = await supabase
       .from("lti_nonces")
       .select("nonce")
-      .eq("nonce", nonce)
+      .eq("nonce", `nonce:${nonce}`)
       .gt("expires_at", new Date().toISOString())
       .single();
 
@@ -366,9 +402,20 @@ serve(async (req) => {
     }
 
     // Consume the nonce to prevent replay
-    await supabase.from("lti_nonces").delete().eq("nonce", nonce);
+    await supabase.from("lti_nonces").delete().eq("nonce", `nonce:${nonce}`);
 
-    // ── 9. Extract LTI 1.3 claims ─────────────────────────────────────────────
+    // ── 9. Validate LTI version claim and extract LTI 1.3 claims ───────────────
+    const ltiVersion = jwtPayload[
+      "https://purl.imsglobal.org/spec/lti/claim/version"
+    ] as string | undefined;
+
+    if (ltiVersion !== "1.3.0") {
+      return new Response(
+        JSON.stringify({ error: "Unsupported LTI version", received: ltiVersion ?? "missing" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const contextClaim = jwtPayload[
       "https://purl.imsglobal.org/spec/lti/claim/context"
     ] as { id?: string } | undefined;
@@ -400,6 +447,25 @@ serve(async (req) => {
     const agsLineitem = agsClaim?.lineitem;
     const agsScopes = agsClaim?.scope;
 
+    const rolesClaim = jwtPayload[
+      "https://purl.imsglobal.org/spec/lti/claim/roles"
+    ] as string[] | undefined;
+
+    // Normalise to a single discriminated value the frontend can act on.
+    // IMS URN for Instructor: https://purl.imsglobal.org/spec/lti/claim/roles contains
+    // "http://purl.imsglobal.org/vocab/lis/v2/membership#Instructor" or
+    // "http://purl.imsglobal.org/vocab/lis/v2/institution/person#Instructor"
+    const isInstructor = (rolesClaim ?? []).some(
+      (r) =>
+        r.includes("membership#Instructor") ||
+        r.includes("institution/person#Instructor") ||
+        r.includes("membership#Administrator") ||
+        r.includes("institution/person#Administrator") ||
+        r.includes("sys/person#SysAdmin"),
+    );
+
+    const userRole: "instructor" | "student" = isInstructor ? "instructor" : "student";
+
     // ── 10. Mint internal HS256 session JWT ───────────────────────────────────
     const jwtSecret = Deno.env.get("TALOCK_JWT_SECRET") ?? "";
     if (!jwtSecret) {
@@ -422,6 +488,8 @@ serve(async (req) => {
         courseId,
         studentId,
         deploymentId: deploymentId ?? "",
+        userRole,
+        roles: rolesClaim ?? [],
         isDeepLink,
         deepLinkReturnUrl,
         agsLineitem,

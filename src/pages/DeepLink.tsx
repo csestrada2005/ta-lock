@@ -48,6 +48,11 @@ export default function DeepLink() {
              return;
         }
 
+        if (data.claims.userRole !== "instructor") {
+             navigate("/unauthorized?reason=insufficient_role", { replace: true });
+             return;
+        }
+
         window.history.replaceState({}, "", "/deep-link");
         setLoading(false);
       } catch (err) {

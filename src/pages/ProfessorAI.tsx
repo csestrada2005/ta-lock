@@ -22,7 +22,7 @@ const modeOptions: { value: Mode; label: string }[] = [
 ];
 
 const ProfessorAI = () => {
-  const { courseId, studentId, brandName } = useTaLock();
+  const { courseId, studentId, brandName, userRole } = useTaLock();
 
   const [mode, setMode] = useState<Mode>("Study");
   const [selectedLecture, setSelectedLecture] = useState<string | null>(null);
@@ -252,6 +252,11 @@ const ProfessorAI = () => {
           {/* Desktop layout */}
           <div className="hidden lg:flex items-center gap-3 py-2 px-4">
             <span className="font-bold text-primary shrink-0">{brandName}</span>
+            {userRole === "instructor" && (
+              <span className="text-xs font-semibold text-primary-foreground bg-primary px-2 py-0.5 rounded-full shrink-0">
+                Instructor View
+              </span>
+            )}
             <div className="flex items-center gap-2 flex-1 justify-center max-w-2xl px-4">
               {courseId && (
                 <span className="text-sm text-muted-foreground bg-secondary/50 border border-border/50 rounded-md px-3 h-9 flex items-center min-w-0 max-w-[240px] truncate">

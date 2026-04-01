@@ -91,8 +91,8 @@ serve(async (req) => {
     const { error: insertErr } = await supabase
       .from("lti_nonces")
       .insert([
-        { nonce, expires_at: expiresAt },
-        { nonce: `state:${state}`, expires_at: expiresAt }
+        { nonce: `nonce:${nonce}`, expires_at: expiresAt },
+        { nonce: `state:${state}:nonce:${nonce}`, expires_at: expiresAt }
       ]);
 
     if (insertErr) {
