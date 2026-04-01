@@ -1,18 +1,10 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "content-type",
   "Access-Control-Allow-Methods": "GET, OPTIONS",
 };
-
-function base64urlEncode(arr: Uint8Array): string {
-    return btoa(String.fromCharCode.apply(null, arr as unknown as number[]))
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=+$/, "");
-}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -26,28 +18,18 @@ serve(async (req) => {
     });
   }
 
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-  );
-
   try {
-    const { data: keysData, error } = await supabase
-      .from("lti_tool_keys")
-      .select("public_key")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .single();
+    const publicKeyPem = Deno.env.get("TALOCK_PUBLIC_KEY");
 
-    if (error || !keysData) {
-      console.error("Failed to fetch public key:", error);
-      return new Response(JSON.stringify({ error: "No keys found" }), {
-        status: 404,
+    if (!publicKeyPem) {
+      console.error("TALOCK_PUBLIC_KEY is not set");
+      return new Response(JSON.stringify({ error: "Server configuration error" }), {
+        status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const pem = keysData.public_key
+    const pem = publicKeyPem
       .replace(/-----BEGIN PUBLIC KEY-----/, "")
       .replace(/-----END PUBLIC KEY-----/, "")
       .replace(/\s+/g, "");
@@ -83,7 +65,11 @@ serve(async (req) => {
 
     return new Response(JSON.stringify(jwks), {
       status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json",
+        "Cache-Control": "public, max-age=3600"
+      },
     });
   } catch (err) {
     console.error("lti-jwks error:", err);
