@@ -344,8 +344,10 @@ serve(async (req) => {
     // ── 7. Standard JWT claims validation ────────────────────────────────────
     const now = Math.floor(Date.now() / 1000);
 
+    const CLOCK_SKEW_SECONDS = 60;
+
     const exp = jwtPayload.exp as number | undefined;
-    if (exp !== undefined && now > exp) {
+    if (exp !== undefined && now > exp + CLOCK_SKEW_SECONDS) {
       return new Response(JSON.stringify({ error: "JWT has expired" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -353,7 +355,7 @@ serve(async (req) => {
     }
 
     const nbf = jwtPayload.nbf;
-    if (nbf !== undefined && typeof nbf === "number" && now < nbf) {
+    if (nbf !== undefined && typeof nbf === "number" && now < nbf - CLOCK_SKEW_SECONDS) {
       return new Response(JSON.stringify({ error: "JWT not yet valid (nbf)" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -480,7 +482,7 @@ serve(async (req) => {
     }
 
     const iat = now;
-    const sessionExp = now + 3600; // 1 hour
+    const sessionExp = now + 28800; // 8 hours — standard LTI session duration
 
     const sessionJwt = await signHS256(
       {

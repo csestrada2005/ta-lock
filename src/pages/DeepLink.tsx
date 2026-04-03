@@ -64,6 +64,31 @@ export default function DeepLink() {
   }, [navigate]);
 
   const handleSubmit = async () => {
+    function isValidHex(value: string): boolean {
+      return /^#[0-9A-Fa-f]{6}$/.test(value);
+    }
+
+    function isValidHttpsUrl(value: string): boolean {
+      try {
+        const url = new URL(value);
+        return url.protocol === "https:";
+      } catch {
+        return false;
+      }
+    }
+
+    const validationErrors: string[] = [];
+    if (!brandName.trim()) validationErrors.push("Brand name is required.");
+    if (!isValidHex(primaryColor)) validationErrors.push("Primary colour must be a valid hex code (e.g. #800000).");
+    if (!isValidHex(secondaryColor)) validationErrors.push("Secondary colour must be a valid hex code (e.g. #F1B82D).");
+    if (logoUrl && !isValidHttpsUrl(logoUrl)) validationErrors.push("Logo URL must be a valid HTTPS URL.");
+
+    if (validationErrors.length > 0) {
+      setError(validationErrors.join(" "));
+      setSubmitting(false);
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
     try {
@@ -127,7 +152,7 @@ export default function DeepLink() {
                 <label className="block text-sm font-medium text-foreground mb-1">Primary Color</label>
                 <div className="flex items-center gap-2">
                   <input type="color" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} className="w-10 h-10 p-1 border border-input rounded cursor-pointer" />
-                  <Input value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} className="font-mono text-sm" />
+                  <Input type="text" pattern="#[0-9A-Fa-f]{6}" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} className="font-mono text-sm" />
                 </div>
               </div>
 
@@ -135,13 +160,13 @@ export default function DeepLink() {
                 <label className="block text-sm font-medium text-foreground mb-1">Secondary Color</label>
                 <div className="flex items-center gap-2">
                   <input type="color" value={secondaryColor} onChange={(e) => setSecondaryColor(e.target.value)} className="w-10 h-10 p-1 border border-input rounded cursor-pointer" />
-                  <Input value={secondaryColor} onChange={(e) => setSecondaryColor(e.target.value)} className="font-mono text-sm" />
+                  <Input type="text" pattern="#[0-9A-Fa-f]{6}" value={secondaryColor} onChange={(e) => setSecondaryColor(e.target.value)} className="font-mono text-sm" />
                 </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1">Logo URL</label>
-                <Input value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="https://..." onBlur={(e) => setLogoUrl(e.target.value)} />
+                <Input type="url" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="https://example.com/logo.png" onBlur={(e) => setLogoUrl(e.target.value)} />
               </div>
 
               <Button onClick={handleSubmit} disabled={submitting} className="mt-4">
