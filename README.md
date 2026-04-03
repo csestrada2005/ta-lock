@@ -1,51 +1,54 @@
-# TA LOCK - Professor AI (LTI 1.3 Frontend)
+# TA LOCK - Professor AI (LTI 1.3 External Tool)
 
-This repository contains the frontend application for the TA-Lock SaaS platform. It is a React-based Single Page Application (SPA) designed exclusively to function as an LTI 1.3 (Learning Tools Interoperability) External Tool. 
-
-By utilizing the LTI 1.3 standard, this application seamlessly and securely integrates into any modern Learning Management System (LMS) such as Canvas, Moodle, or Blackboard, providing students with an immersive, full-screen AI tutoring experience.
+This repository contains the full-stack application for the TaLock platform. It is a multi-tenant AI tutoring SaaS designed to function as an LTI 1.3 (Learning Tools Interoperability) External Tool, embedding securely within modern LMS platforms like Canvas.
 
 ## Architecture & Integration Flow
 
-This application completely bypasses traditional authentication and manual course selection screens. It relies on a secure handshake with the host LMS.
+TaLock uses an LTI 1.3 integration. The flow is as follows:
 
-1.  **The LTI Launch (`/launch`):** When a user clicks the "TA-Lock" link inside their LMS, the LMS performs a secure POST request to the application's launch route.
-2.  **Context Extraction:** The application intercepts the signed JWT provided by the LMS. This token mathematically verifies the user's identity, their role (student or instructor), the specific `course_id`, and the `tenant_id` (the college).
-3.  **Direct Routing (`/chat`):** Once the token is verified and the context is stored in the global state, the user is instantly redirected to the full-screen chat interface specifically configured for their current class.
+1. **OIDC Initiation (`/lti-oidc-init`):**
+   Canvas triggers the OIDC login initiation by sending a POST to the `lti-oidc-init` Edge Function. The function validates the platform, generates cryptographically bound state and nonce parameters, and redirects the user back to the Canvas authorization endpoint.
 
-## Development Setup
+2. **LTI Launch (`/lti-launch`):**
+   Canvas POSTs a signed `id_token` to the `lti-launch` Edge Function. The function validates the state and nonce binding to prevent CSRF, verifies the RS256 signature against cached JWKS, validates all standard claims (exp, nbf, aud), and checks for anti-replay. It then mints an 8-hour internal session JWT and a short-lived, 5-minute single-use launch token. Finally, it redirects the client to the frontend (`/launch?lt=<token>` or `/deep-link?lt=<token>`).
 
-This project uses Bun for fast dependency management and execution.
+3. **Session Exchange & Routing:**
+   - **Student / Chat (`/launch`):** The frontend exchanges the launch token via a POST to the `lti-session/exchange` Edge Function, stores the resulting session token in `sessionStorage`, and navigates the user to the `/chat` route.
+   - **Instructor / Deep Linking (`/deep-link`):** Instructors exchanging a deep link token are presented with a branding configuration UI. After saving, the settings are submitted via the `lti-deep-link-response` Edge Function back to Canvas.
 
-### Prerequisites
-* Bun installed on your local machine.
+## Local Development
 
-### Installation
-
-1.  Clone the repository and install dependencies:
-    ```bash
-    bun install
-    ```
-2.  Start the development server:
-    ```bash
-    bun run dev
-    ```
-
-### Local LTI Simulation
-Because the application expects to be launched by an LMS, navigating directly to `http://localhost:5173` will result in an unauthorized error. 
-
-To simulate an LTI launch during local development, append a mock token payload to the launch URL. For example:
-`http://localhost:5173/launch?token=mock_jwt_payload_here`
-
-The local mock API service will intercept this, populate the `TenantContext`, and redirect you to the active chat interface.
+The legacy mock token URL pattern is deprecated. To test locally, you must use a real LTI 1.3 test platform, or utilize an LTI debug tool such as `ltijs-demo` or the IMS Reference Implementation.
 
 ## Project Structure
 
-* `src/pages/LTILaunch.tsx` - The secure entry point. Handles parsing the LTI JWT and establishing user context.
-* `src/pages/ProfessorAI.tsx` - The main application view. A full-screen layout containing the chat interface and conversation history.
-* `src/components/` - Isolated UI elements, heavily utilizing shadcn/ui and Tailwind CSS.
-* `src/contexts/` - Global state managers, specifically `TenantContext` which holds the active LMS configuration, course IDs, and dynamic brand theming.
-* `src/services/` - API interaction layers connecting the frontend to the Professor Agent Platform backend.
+The project is structured into backend edge functions, database migrations, and the frontend React application:
 
-## Theming and Branding
+- `supabase/functions/`: Supabase Edge Functions (e.g., `lti-oidc-init`, `lti-launch`, `lti-session`, `lti-deep-link-response`, `lti-ags-submit`)
+- `supabase/migrations/`: Postgres database schemas
+- `src/pages/`: Main application routes (`LTILaunch`, `DeepLink`, `ProfessorAI`, `Unauthorized`)
+- `src/contexts/TaLockContext.tsx`: Global state for sessions, authorization, and multi-tenant theming
+- `src/hooks/useProfessorChat.ts`: Chat logic hook
+- `src/types/global.d.ts`: TypeScript definitions (e.g., `TaLockConfig`)
 
-The application utilizes CSS Custom Properties to support dynamic, multi-tenant branding. Static Tailwind color utilities have been abstracted. When the application launches, it fetches the specific college's theme configuration (primary colors, secondary colors, and logos) based on the `tenant_id` and injects them into the UI at runtime.
+## Prerequisites and Setup
+
+1. **Tools:**
+   - Bun (package manager and script runner)
+   - Supabase CLI
+
+2. **Environment Variables:**
+   Ensure the following environment variables are set for the edge functions and frontend:
+   - `VITE_SUPABASE_URL`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `TALOCK_JWT_SECRET`
+   - `TALOCK_PRIVATE_KEY`
+   - `LTI_CLIENT_ID`
+   - `FRONTEND_URL`
+   - `ALLOWED_ORIGIN`
+
+3. **Installation & Running:**
+   ```bash
+   bun install
+   bun run dev
+   ```
