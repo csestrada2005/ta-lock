@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
@@ -159,8 +160,26 @@ serve(async (req) => {
         });
     }
 
-    const clientId = Deno.env.get("LTI_CLIENT_ID") ?? "";
-    const platformIss = "https://canvas.instructure.com"; // Simplified: in reality, fetch platform from db based on deployment ID
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    );
+
+    const { data: platform, error: platformErr } = await supabase
+      .from("lti_platforms")
+      .select("iss, client_id")
+      .eq("deployment_id", sessionPayload.deploymentId)
+      .single();
+
+    if (platformErr || !platform) {
+      return new Response(
+        JSON.stringify({ error: "Could not resolve platform for deployment" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    const platformIss = platform.iss as string;
+    const clientId = (platform.client_id as string) || Deno.env.get("LTI_CLIENT_ID") ?? "";
 
     const jwtPayload = {
       iss: clientId,

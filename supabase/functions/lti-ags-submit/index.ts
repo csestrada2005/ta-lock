@@ -165,17 +165,21 @@ serve(async (req) => {
     );
 
     // Get the platform details to find the token_endpoint
-    // Note: We'd ideally find by iss/deploymentId, but for now we'll do a simple lookup by tenantId
-    // If you had multiple deployments per tenant, this would need refinement.
-    const { data: platform, error: platformErr } = await supabase
+    let platformQuery = supabase
         .from("lti_platforms")
-        .select("token_endpoint, client_id, iss")
-        .eq("tenant_id", tenantId)
-        .limit(1)
-        .single();
+        .select("token_endpoint, client_id, iss");
+
+    if (sessionPayload.deploymentId) {
+        platformQuery = platformQuery.eq("deployment_id", sessionPayload.deploymentId as string).single();
+    } else {
+        console.warn("deploymentId missing in sessionPayload, falling back to tenantId lookup");
+        platformQuery = platformQuery.eq("tenant_id", tenantId).limit(1).single();
+    }
+
+    const { data: platform, error: platformErr } = await platformQuery;
 
     if (platformErr || !platform || !platform.token_endpoint) {
-        throw new Error("Could not find platform token_endpoint for tenant");
+        throw new Error("Could not find platform token_endpoint for deployment/tenant");
     }
 
     const tokenEndpoint = platform.token_endpoint;
