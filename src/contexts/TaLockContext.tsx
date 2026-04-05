@@ -53,12 +53,16 @@ interface TaLockContextValue {
   theme: { primary: string; secondary: string };
   ready: boolean;
   lmsConfig: TaLockConfig | null;
-  /** Tri-state auth status: loading while checking sessionStorage on mount */
-  authStatus: "loading" | "authenticated" | "unauthenticated";
+  /** Auth status: loading while checking sessionStorage on mount */
+  authStatus: "loading" | "authenticated" | "unauthenticated" | "error";
+  networkErrorCode: number | null;
   /** True once the session has been validated */
   isAuthenticated: boolean;
   /** Called by LTILaunch after a successful /exchange */
   setLtiState: (config: TaLockConfig) => void;
+  retryHydration: () => void;
+  sessionExpiringSoon: boolean;
+  dismissExpiryWarning: () => void;
 }
 
 const TaLockContext = createContext<TaLockContextValue | null>(null);
@@ -69,7 +73,9 @@ interface TaLockProviderProps {
 
 export function TaLockProvider({ children }: TaLockProviderProps) {
   const [lmsConfig, setLmsConfig] = useState<TaLockConfig | null>(null);
-  const [authStatus, setAuthStatus] = useState<"loading" | "authenticated" | "unauthenticated">("loading");
+  const [authStatus, setAuthStatus] = useState<"loading" | "authenticated" | "unauthenticated" | "error">("loading");
+  const [networkErrorCode, setNetworkErrorCode] = useState<number | null>(null);
+  const [sessionExpiringSoon, setSessionExpiringSoon] = useState(false);
 
   const effectiveTenantId = lmsConfig?.tenantId ?? FALLBACK_TENANT_ID;
 
@@ -83,30 +89,10 @@ export function TaLockProvider({ children }: TaLockProviderProps) {
     setAuthStatus("authenticated");
   }, []);
 
-  // On mount: check sessionStorage for an existing session token and re-hydrate
-  useEffect(() => {
+  const hydrateSession = useCallback(() => {
     const token = sessionStorage.getItem("talock_session");
 
     if (!token) {
-      setAuthStatus("unauthenticated");
-      return;
-    }
-
-    // Decode JWT payload client-side (no signature verification — just check exp)
-    try {
-      const parts = token.split(".");
-      if (parts.length !== 3) throw new Error("malformed");
-      const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-      const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
-      const payload = JSON.parse(atob(padded)) as Record<string, unknown>;
-      const now = Math.floor(Date.now() / 1000);
-      if (typeof payload.exp === "number" && now > payload.exp) {
-        sessionStorage.removeItem("talock_session");
-        setAuthStatus("unauthenticated");
-        return;
-      }
-    } catch {
-      sessionStorage.removeItem("talock_session");
       setAuthStatus("unauthenticated");
       return;
     }
@@ -117,8 +103,13 @@ export function TaLockProvider({ children }: TaLockProviderProps) {
     })
       .then(async (res) => {
         if (!res.ok) {
-          sessionStorage.removeItem("talock_session");
-          setAuthStatus("unauthenticated");
+          if (res.status === 401) {
+            sessionStorage.removeItem("talock_session");
+            setAuthStatus("unauthenticated");
+          } else {
+            setAuthStatus("error");
+            setNetworkErrorCode(res.status);
+          }
           return;
         }
         const data = (await res.json()) as {
@@ -142,11 +133,67 @@ export function TaLockProvider({ children }: TaLockProviderProps) {
           agsScopes: data.agsScopes ?? null,
         });
         setAuthStatus("authenticated");
+        setNetworkErrorCode(null);
       })
       .catch(() => {
-        setAuthStatus("unauthenticated");
+        setAuthStatus("error");
+        setNetworkErrorCode(null);
       });
   }, []);
+
+  const retryHydration = useCallback(() => {
+    setAuthStatus("loading");
+    setNetworkErrorCode(null);
+    hydrateSession();
+  }, [hydrateSession]);
+
+  // On mount: check sessionStorage for an existing session token and re-hydrate
+  useEffect(() => {
+    hydrateSession();
+  }, [hydrateSession]);
+
+  // Session expiry warning logic
+  useEffect(() => {
+    if (authStatus !== "authenticated") return;
+
+    const token = sessionStorage.getItem("talock_session");
+    if (!token) return;
+
+    try {
+      const parts = token.split(".");
+      if (parts.length !== 3) return;
+
+      const base64Url = parts[1];
+      const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+      const padLength = (4 - (base64.length % 4)) % 4;
+      const paddedBase64 = base64 + "=".repeat(padLength);
+
+      const binaryString = atob(paddedBase64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      const decoder = new TextDecoder("utf-8");
+      const decodedString = decoder.decode(bytes);
+      const payload = JSON.parse(decodedString);
+
+      if (typeof payload.exp === "number") {
+        const msUntilWarning = (payload.exp - 15 * 60) * 1000 - Date.now();
+
+        if (msUntilWarning <= 0) {
+          setSessionExpiringSoon(true);
+        } else {
+          const timeoutId = setTimeout(() => {
+            setSessionExpiringSoon(true);
+          }, msUntilWarning);
+          return () => clearTimeout(timeoutId);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to parse token for expiry warning:", e);
+    }
+  }, [authStatus]);
 
   useEffect(() => {
     if (!effectiveTenantId || effectiveTenantId === FALLBACK_TENANT_ID) {
@@ -200,6 +247,10 @@ export function TaLockProvider({ children }: TaLockProviderProps) {
 
   const isAuthenticated = authStatus === "authenticated";
 
+  const dismissExpiryWarning = useCallback(() => {
+    setSessionExpiringSoon(false);
+  }, []);
+
   const value: TaLockContextValue = {
     tenantId: effectiveTenantId,
     courseId: lmsConfig?.courseId ?? "",
@@ -217,8 +268,12 @@ export function TaLockProvider({ children }: TaLockProviderProps) {
     ready,
     lmsConfig,
     authStatus,
+    networkErrorCode,
     isAuthenticated,
     setLtiState,
+    retryHydration,
+    sessionExpiringSoon,
+    dismissExpiryWarning,
   };
 
   return <TaLockContext.Provider value={value}>{children}</TaLockContext.Provider>;

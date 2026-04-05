@@ -13,6 +13,7 @@ import type { Mode, Lecture } from "@/components/professor-ai/types";
 import { useProfessorChat } from "@/hooks/useProfessorChat";
 import { useProfessorQuiz } from "@/hooks/useProfessorQuiz";
 import type { ExpertiseLevel } from "@/components/professor-ai/types";
+import { X } from "lucide-react";
 
 const modeOptions: { value: Mode; label: string }[] = [
   { value: "Study",         label: "Study"    },
@@ -22,7 +23,7 @@ const modeOptions: { value: Mode; label: string }[] = [
 ];
 
 const ProfessorAI = () => {
-  const { courseId, studentId, brandName, userRole } = useTaLock();
+  const { courseId, studentId, brandName, userRole, sessionExpiringSoon, dismissExpiryWarning } = useTaLock();
 
   const [mode, setMode] = useState<Mode>("Study");
   const [selectedLecture, setSelectedLecture] = useState<string | null>(null);
@@ -219,6 +220,25 @@ const ProfessorAI = () => {
       <div
         className={`flex flex-col flex-1 transition-all duration-300 ${sidebarOpen ? "lg:ml-80" : "lg:ml-14"}`}
       >
+        {/* Session Expiry Warning Banner */}
+        <div
+          className={`overflow-hidden transition-all duration-500 ease-in-out bg-yellow-500/10 border-b border-yellow-500/30 text-yellow-700 dark:text-yellow-500 flex items-center justify-between px-4 ${
+            sessionExpiringSoon ? "max-h-16 py-2 opacity-100" : "max-h-0 py-0 opacity-0 border-transparent"
+          }`}
+        >
+          <p className="text-sm font-medium">
+            Your session will expire soon. Save your work and relaunch TaLock from Canvas to continue.
+          </p>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={dismissExpiryWarning}
+            className="h-6 w-6 text-yellow-700 hover:text-yellow-900 hover:bg-yellow-500/20 dark:text-yellow-500 dark:hover:text-yellow-400 dark:hover:bg-yellow-500/20"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
         {/* Inline header — course locked from JWT, no logout */}
         <div className="bg-background border-b border-border/50 shrink-0">
           {/* Mobile layout */}
