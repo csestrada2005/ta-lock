@@ -4,9 +4,11 @@ import { Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/auth";
+import { useTaLock } from "@/contexts/TaLockContext";
 
 export default function DeepLink() {
   const navigate = useNavigate();
+  const { setLtiState } = useTaLock();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -19,6 +21,8 @@ export default function DeepLink() {
   useEffect(() => {
     const exchangeToken = async () => {
       const lt = new URLSearchParams(window.location.search).get("lt");
+      window.history.replaceState({}, "", "/deep-link");
+
       if (!lt) {
         navigate("/unauthorized?reason=missing_token", { replace: true });
         return;
@@ -53,7 +57,19 @@ export default function DeepLink() {
              return;
         }
 
-        window.history.replaceState({}, "", "/deep-link");
+        const config: TaLockConfig = {
+          tenantId: data.claims.tenantId ?? "",
+          courseId: data.claims.courseId ?? "",
+          studentId: data.claims.studentId ?? "",
+          deploymentId: data.claims.deploymentId ?? "",
+          userRole: data.claims.userRole,
+          roles: data.claims.roles ?? [],
+          agsLineitem: data.claims.agsLineitem ?? null,
+          agsScopes: data.claims.agsScopes ?? null,
+        };
+
+        setLtiState(config);
+
         setLoading(false);
       } catch (err) {
         navigate("/unauthorized?reason=network_error", { replace: true });

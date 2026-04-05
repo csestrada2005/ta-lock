@@ -164,7 +164,7 @@ serve(async (req) => {
       });
     }
 
-    const sessionPayload = await verifyHS256(sessionJwt, secret);
+    const sessionPayload = await verifyHS256(sessionJwt, secret) as Record<string, unknown> & { platformIss?: string; tenantId?: string; courseId?: string; studentId?: string; deploymentId?: string; userRole?: string; roles?: string[]; isDeepLink?: boolean; agsLineitem?: string; agsScopes?: string[] };
     if (!sessionPayload) {
       return new Response(JSON.stringify({ error: "Invalid session token" }), {
         status: 401,
@@ -192,6 +192,7 @@ serve(async (req) => {
           isDeepLink: sessionPayload.isDeepLink,
           agsLineitem: sessionPayload.agsLineitem ?? null,
           agsScopes: (sessionPayload.agsScopes as string[] | undefined) ?? null,
+          platformIss: (sessionPayload.platformIss as string | undefined) ?? null,
         },
       }),
       {
@@ -222,7 +223,7 @@ serve(async (req) => {
   }
 
   // ── 2. Verify the JWT ─────────────────────────────────────────────────────
-  const payload = await verifyHS256(sessionToken, secret);
+  const payload = await verifyHS256(sessionToken, secret) as Record<string, unknown> & { platformIss?: string; tenantId?: string; courseId?: string; studentId?: string; deploymentId?: string; userRole?: string; roles?: string[]; isDeepLink?: boolean; agsLineitem?: string; agsScopes?: string[] };
 
   if (!payload) {
     return new Response(JSON.stringify({ error: "No valid session" }), {
@@ -252,6 +253,7 @@ serve(async (req) => {
       isDeepLink: (payload.isDeepLink as boolean | undefined) ?? false,
       agsLineitem: payload.agsLineitem ?? null,
       agsScopes: (payload.agsScopes as string[] | undefined) ?? null,
+      platformIss: (payload.platformIss as string | undefined) ?? null,
     }),
     {
       status: 200,
