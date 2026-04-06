@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Menu } from "lucide-react";
 import { apiFetch } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -54,6 +54,43 @@ const ProfessorAI = () => {
   } = chat;
 
   const quiz = useProfessorQuiz(courseId || undefined);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    try {
+      window.parent.postMessage(
+        { subject: "lti.enableScrolling", value: false },
+        "*"
+      );
+    } catch (e) {
+      console.warn("Could not post lti.enableScrolling message to parent", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) {
+        try {
+          window.parent.postMessage(
+            { subject: "lti.frameResize", height: Math.ceil(entry.contentRect.height) },
+            "*"
+          );
+        } catch (e) {
+          console.warn("Could not post lti.frameResize message to parent", e);
+        }
+      }
+    });
+
+    observer.observe(containerRef.current);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
 
   // ── Fetch lectures ──
   useEffect(() => {
@@ -205,7 +242,7 @@ const ProfessorAI = () => {
     );
 
   return (
-    <div className="flex h-screen w-screen bg-background text-foreground overflow-hidden">
+    <div ref={containerRef} className="flex h-screen w-screen bg-background text-foreground overflow-hidden">
       <ProfessorSidebarNew
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(!sidebarOpen)}

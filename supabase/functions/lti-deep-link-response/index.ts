@@ -60,11 +60,12 @@ async function verifyHS256(
 async function signRS256(
   payload: Record<string, unknown>,
   privateKeyPem: string,
+  kid: string = "talock-1",
 ): Promise<string> {
   const encoder = new TextEncoder();
 
   const headerB64 = bytesToBase64url(
-    encoder.encode(JSON.stringify({ alg: "RS256", typ: "JWT", kid: "talock-1" })),
+    encoder.encode(JSON.stringify({ alg: "RS256", typ: "JWT", kid: kid })),
   );
   const payloadB64 = bytesToBase64url(encoder.encode(JSON.stringify(payload)));
   const signingInput = `${headerB64}.${payloadB64}`;
@@ -179,6 +180,15 @@ serve(async (req) => {
       );
     }
 
+    const { data: keysData } = await supabase
+      .from("lti_tool_keys")
+      .select("kid")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    const kid = keysData?.kid || "talock-1";
+
     const platformIss = platform.iss as string;
     const clientId = (platform.client_id as string) || Deno.env.get("LTI_CLIENT_ID") ?? "";
 
@@ -205,7 +215,7 @@ serve(async (req) => {
       ]
     };
 
-    const signedJwt = await signRS256(jwtPayload, privateKeyPem);
+    const signedJwt = await signRS256(jwtPayload, privateKeyPem, kid);
 
     return new Response(JSON.stringify({ jwt: signedJwt, returnUrl: sessionPayload.deepLinkReturnUrl }), {
       status: 200,

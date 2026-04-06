@@ -34,7 +34,7 @@ serve(async (req) => {
   try {
     const { data: keysData, error } = await supabase
       .from("lti_tool_keys")
-      .select("public_key")
+      .select("id, public_key, kid")
       .order("created_at", { ascending: false })
       .limit(1)
       .single();
@@ -68,6 +68,25 @@ serve(async (req) => {
 
     const jwk = await crypto.subtle.exportKey("jwk", key);
 
+    const canonicalJwkString = JSON.stringify({
+      e: jwk.e,
+      kty: jwk.kty,
+      n: jwk.n
+    });
+
+    const canonicalJwkBytes = new TextEncoder().encode(canonicalJwkString);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", canonicalJwkBytes);
+    const thumbprint = base64urlEncode(new Uint8Array(hashBuffer));
+
+    let kid = keysData.kid;
+    if (!kid || kid !== thumbprint) {
+      kid = thumbprint;
+      await supabase
+        .from("lti_tool_keys")
+        .update({ kid: thumbprint })
+        .eq("id", keysData.id);
+    }
+
     const jwks = {
         keys: [
             {
@@ -76,7 +95,7 @@ serve(async (req) => {
                 e: jwk.e,
                 alg: "RS256",
                 use: "sig",
-                kid: "talock-1"
+                kid: kid
             }
         ]
     };

@@ -16,6 +16,15 @@ TaLock uses an LTI 1.3 integration. The flow is as follows:
    - **Student / Chat (`/launch`):** The frontend exchanges the launch token via a POST to the `lti-session/exchange` Edge Function, stores the resulting session token in `sessionStorage`, and navigates the user to the `/chat` route.
    - **Instructor / Deep Linking (`/deep-link`):** Instructors exchanging a deep link token are presented with a branding configuration UI. After saving, the settings are submitted via the `lti-deep-link-response` Edge Function back to Canvas.
 
+## Deployment
+
+The application includes security headers required for embedding within an LMS (like Canvas) using an iframe.
+
+- **Netlify:** The `_headers` file is pre-configured for deployment on Netlify.
+- **Vercel:** A `vercel.json` equivalent is provided as a comment at the top of the `_headers` file.
+- **Self-Hosted Canvas:** The `frame-ancestors` directive in the Content-Security-Policy header allows embedding by `*.instructure.com` and `*.canvas.net`. If you are using a self-hosted Canvas installation, you will need to add your institution's Canvas domain to the `frame-ancestors` directive.
+- **X-Frame-Options:** Note that `X-Frame-Options` is intentionally omitted, as it conflicts with the `frame-ancestors` CSP directive and some browsers enforce both. The CSP directive is the modern standard and takes precedence.
+
 ## Local Development
 
 The legacy mock token URL pattern is deprecated. To test locally, you must use a real LTI 1.3 test platform, or utilize an LTI debug tool such as `ltijs-demo` or the IMS Reference Implementation.
