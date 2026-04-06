@@ -123,7 +123,7 @@ serve(async (req) => {
   }
 
   const secret = Deno.env.get("TALOCK_JWT_SECRET") ?? "";
-  const sessionPayload = await verifyHS256(sessionToken, secret);
+  const sessionPayload = await verifyHS256(sessionToken, secret) as Record<string, unknown> & { platformIss?: string; deploymentId?: string; isDeepLink?: boolean; deepLinkReturnUrl?: string };
 
   if (!sessionPayload) {
     return new Response(JSON.stringify({ error: "Invalid token" }), {
@@ -168,6 +168,7 @@ serve(async (req) => {
     const { data: platform, error: platformErr } = await supabase
       .from("lti_platforms")
       .select("iss, client_id")
+      .eq("iss", sessionPayload.platformIss)
       .eq("deployment_id", sessionPayload.deploymentId)
       .single();
 

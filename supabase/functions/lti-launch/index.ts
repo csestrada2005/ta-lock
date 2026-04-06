@@ -274,11 +274,23 @@ serve(async (req) => {
       });
     }
 
+    const audClaim = jwtPayload.aud;
+    const audArray = Array.isArray(audClaim) ? audClaim : (typeof audClaim === "string" ? [audClaim] : []);
+    const candidateClientId = audArray[0];
+
+    if (!candidateClientId) {
+      return new Response(JSON.stringify({ error: "Missing aud claim" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // ── 4. Look up the registered platform ───────────────────────────────────
     const { data: platform, error: platformErr } = await supabase
       .from("lti_platforms")
       .select("*")
       .eq("iss", iss)
+      .eq("client_id", candidateClientId)
       .eq("deployment_id", deploymentId)
       .single();
 
@@ -496,6 +508,7 @@ serve(async (req) => {
         deepLinkReturnUrl,
         agsLineitem,
         agsScopes,
+        platformIss: iss,
         iat,
         exp: sessionExp,
       },
