@@ -14,10 +14,15 @@ import { useTaLock } from "@/contexts/TaLockContext";
  */
 const LTILaunch = () => {
   const navigate = useNavigate();
-  const { setLtiState } = useTaLock();
+  const { setLtiState, authStatus } = useTaLock();
 
   useEffect(() => {
     const exchange = async () => {
+      if (authStatus === "authenticated") {
+        navigate("/chat", { replace: true });
+        return;
+      }
+
       const lt = new URLSearchParams(window.location.search).get("lt");
 
       if (!lt) {
@@ -87,7 +92,7 @@ const LTILaunch = () => {
     };
 
     exchange();
-  }, [navigate, setLtiState]);
+  }, [navigate, setLtiState, authStatus]);
 
   return (
     <div className="flex h-screen w-screen items-center justify-center bg-background">
